@@ -193,7 +193,7 @@ def create_start_sheet(output_path):
     doc.save(output_path)
     print(f"Start Sheet saved to: {output_path}")
 
-def create_product_report(output_path):
+def create_product_report(output_path, img_dir):
     doc = Document()
     for s in doc.sections:
         s.top_margin = Inches(0.8)
@@ -229,6 +229,22 @@ def create_product_report(output_path):
         r.font.name = "Calibri"; r.font.size = Pt(10); r.font.color.rgb = RGBColor(30, 41, 59)
         return p
 
+    def add_figure(img_filename, caption):
+        img_path = os.path.join(img_dir, img_filename)
+        if os.path.exists(img_path):
+            doc.add_paragraph().paragraph_format.space_before = Pt(8)
+            p_img = doc.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.add_run().add_picture(img_path, width=Inches(5.8))
+            p_cap = doc.add_paragraph()
+            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_cap.paragraph_format.space_after = Pt(10)
+            r_cap = p_cap.add_run(caption)
+            r_cap.font.name = "Calibri"
+            r_cap.font.size = Pt(9.5)
+            r_cap.font.bold = True
+            r_cap.font.color.rgb = RGBColor(71, 85, 105)
+
     # Section 1
     add_section_header("1. Product Overview")
     add_body(
@@ -245,14 +261,6 @@ def create_product_report(output_path):
         "• Greenhouse Operators: Tracking microclimates, moisture thresholds, and ambient heat curves.\n"
         "• Healthcare & Cold Storage Technicians: Preventing sample degradation during cooling failure."
     )
-    add_body(
-        "1.4 Main Features:\n"
-        "• Dual Telemetry Ingestion: Supports physical ESP32 (DHT11+OLED) hardware as well as a standalone cross-platform Python CLI simulator.\n"
-        "• Serverless Apparent Heat Index: Computes the NOAA Steadman Heat Index ('Feels Like') server-side on AWS Lambda.\n"
-        "• Automated Climate Alerting: Classifies events into NORMAL, HEAT_ALERT (>40°C), FREEZE_ALERT (<=5°C), and HIGH_HUMIDITY (>=85%).\n"
-        "• Zero-Dependency S3 Dashboard: Dark-mode glassmorphic UI with animated meters, native SVG trend charts, and 100% offline Demo presets.\n"
-        "• Cost-Optimized DynamoDB TTL: Automatically purges records after 24 hours, guaranteeing zero storage accumulation in AWS Learner Lab."
-    )
 
     # Section 2
     add_section_header("2. Architecture and Technologies")
@@ -264,6 +272,9 @@ def create_product_report(output_path):
         "4. Amazon DynamoDB: Persists the structured record into 'envirosense-telemetry' with Pay-Per-Request capacity and automatic TTL expiration.\n"
         "5. Amazon S3 Static Dashboard: Queries GET /telemetry every 6 seconds to update digital readouts, animated radial meters, and native SVG trendlines."
     )
+
+    add_figure("architecture-diagram.png", "Figure 1: EnviroSense 4-Tier Serverless Cloud Architecture Diagram")
+    add_figure("hardware-schematic.png", "Figure 2: ESP32 DevKit V1 Hardware Circuit & Sensor Pinout Schematic")
 
     # Technologies Table
     t_tech = doc.add_table(rows=6, cols=3)
@@ -314,9 +325,13 @@ def create_product_report(output_path):
     # Section 4
     add_section_header("4. Testing and Results")
     add_body(
-        "Comprehensive Unit Testing Suite (tests/test_lambda.py):\n"
-        "An automated test suite was constructed using Python's standard 'unittest' framework with mock DynamoDB and boto3 objects. This ensures 100% test reproducibility on any offline computer without cloud credentials."
+        "Visual Demonstration Screenshots & Test Cases:\n"
+        "The figures below illustrate the live operational states of the EnviroSense S3 dashboard and terminal verification suites."
     )
+
+    add_figure("dashboard-operational-green.png", "Figure 3: EnviroSense Dashboard — Operational Normal State (Glowing Green)")
+    add_figure("dashboard-failure-red.png", "Figure 4: EnviroSense Dashboard — Critical Thermal Hazard State (Pulsing Red Alert)")
+    add_figure("terminal-monitor-demo.png", "Figure 5: Automated Unit Test Suite (100% Pass) & Edge Simulator Execution")
 
     t_tests = doc.add_table(rows=8, cols=4)
     t_tests.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -382,10 +397,11 @@ def create_product_report(output_path):
     )
 
     doc.save(output_path)
-    print(f"Product Report saved to: {output_path}")
+    print(f"Product Report with Embedded Figures saved to: {output_path}")
 
 if __name__ == "__main__":
     out_dir = r"c:\Users\yeshwanth\OneDrive\Desktop\cloud product 2\cloud computing product 2\docs"
+    img_dir = os.path.join(out_dir, "screenshots")
     os.makedirs(out_dir, exist_ok=True)
     create_start_sheet(os.path.join(out_dir, "PRODUCT_START_SHEET.docx"))
-    create_product_report(os.path.join(out_dir, "PRODUCT_REPORT.docx"))
+    create_product_report(os.path.join(out_dir, "PRODUCT_REPORT.docx"), img_dir)

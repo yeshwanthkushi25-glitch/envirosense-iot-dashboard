@@ -3,39 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>EnviroSense — IoT Climate & Environmental Dashboard</title>
+  <title>EnviroSense — IoT Climate & Environmental Telemetry</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Ambient background lighting effects -->
+  <div class="ambient-glow glow-cyan"></div>
+  <div class="ambient-glow glow-amber"></div>
+  <div class="ambient-glow glow-violet"></div>
+
   <div class="app-container">
     <!-- Top Header -->
     <header class="app-header">
       <div class="brand">
-        <div class="logo-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-            <circle cx="12" cy="12" r="5"/>
+        <div class="brand-badge-icon">
+          <!-- Animated Environmental IoT Icon -->
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/>
+            <circle cx="12" cy="12" r="4"/>
           </svg>
         </div>
         <div>
-          <h1>EnviroSense</h1>
+          <div class="brand-title-row">
+            <h1>EnviroSense</h1>
+            <span class="version-tag">v2.0 · IoT Cloud</span>
+          </div>
           <p class="subtitle">Cloud Computing (25CAI102PC205) · Product #23 · SR University</p>
         </div>
       </div>
-      <div class="header-badges">
+
+      <div class="header-actions">
+        <!-- Sound alert toggle -->
+        <button type="button" class="btn-icon" id="btn-sound-toggle" title="Toggle audio alerts">
+          <span id="sound-icon">🔔 Audio: ON</span>
+        </button>
         <span id="environment-badge" class="badge badge-demo">DEMO MODE</span>
-        <span id="system-status-badge" class="badge badge-success">NORMAL</span>
+        <span id="system-status-badge" class="badge badge-normal">
+          <span class="pulse-dot"></span> <span id="badge-status-text">NORMAL</span>
+        </span>
       </div>
     </header>
 
     <!-- Main Grid -->
     <main class="dashboard-grid">
-      <!-- AWS Connection & Demo Controls -->
+      <!-- AWS Configuration & Scenario Switcher Bar -->
       <section class="card config-card">
-        <div class="card-header">
-          <h2>Cloud Integration & Simulator Controls</h2>
-          <span class="card-caption">AWS HTTP API Gateway / S3 Direct Polling</span>
+        <div class="card-header-bar">
+          <div>
+            <h2>Cloud Integration & Scenarios</h2>
+            <span class="card-caption">AWS HTTP API Gateway (v2) · Direct S3 Polling · Edge Telemetry Node</span>
+          </div>
+          <span class="endpoint-chip" id="active-endpoint-display">Local Rig (Demo Engine)</span>
         </div>
+
         <form id="api-form" class="api-form">
           <div class="input-group">
             <label for="api-url">API Gateway URL</label>
@@ -43,181 +63,312 @@
           </div>
           <div class="input-group input-key">
             <label for="api-key">API Key (Optional)</label>
-            <input type="password" id="api-key" placeholder="x-api-key header value" spellcheck="false">
+            <input type="password" id="api-key" placeholder="x-api-key" spellcheck="false">
           </div>
           <div class="form-actions">
             <button type="submit" class="btn btn-primary" id="btn-connect">Connect to AWS</button>
             <button type="button" class="btn btn-secondary" id="btn-reset-demo">Reset to Demo</button>
           </div>
         </form>
-        <p id="connection-message" class="status-msg">Showing local demonstration state. Connect your AWS API Gateway to poll live DynamoDB telemetry.</p>
+        <p id="connection-message" class="status-msg">Showing local demonstration state. Zero AWS credentials required for offline presentation.</p>
 
-        <div class="demo-controls">
-          <span class="control-label">One-Click Sensor Simulation Presets:</span>
-          <div class="button-group">
-            <button type="button" class="btn-chip" id="sim-normal">🟢 Optimal (24°C, 48%)</button>
-            <button type="button" class="btn-chip" id="sim-heat">🔥 Heatwave (41°C, 84%)</button>
-            <button type="button" class="btn-chip" id="sim-freeze">❄️ Cold Wave (2°C, 32%)</button>
-            <button type="button" class="btn-chip" id="sim-humid">💧 High Humidity (29°C, 92%)</button>
-            <button type="button" class="btn-chip btn-stream" id="sim-stream">▶️ Start Live Stream</button>
+        <!-- Visual Scenario Selector Cards -->
+        <div class="scenario-toolbar">
+          <span class="control-label">Quick Environment Simulation Presets:</span>
+          <div class="scenario-cards-grid">
+            <button type="button" class="scenario-card active" id="sim-normal">
+              <span class="scenario-icon">🌿</span>
+              <div class="scenario-text">
+                <strong>Greenhouse Normal</strong>
+                <small>24.5°C · 48% RH · Ideal</small>
+              </div>
+            </button>
+            <button type="button" class="scenario-card" id="sim-heat">
+              <span class="scenario-icon">🔥</span>
+              <div class="scenario-text">
+                <strong>Heatwave Surge</strong>
+                <small>41.8°C · 84% RH · Danger</small>
+              </div>
+            </button>
+            <button type="button" class="scenario-card" id="sim-freeze">
+              <span class="scenario-icon">❄️</span>
+              <div class="scenario-text">
+                <strong>Cold Frost Drop</strong>
+                <small>2.4°C · 32% RH · Alert</small>
+              </div>
+            </button>
+            <button type="button" class="scenario-card" id="sim-humid">
+              <span class="scenario-icon">🌧️</span>
+              <div class="scenario-text">
+                <strong>Tropical Rain</strong>
+                <small>29.2°C · 92% RH · Moist</small>
+              </div>
+            </button>
+            <button type="button" class="scenario-card card-stream" id="sim-stream">
+              <span class="scenario-icon" id="stream-icon">▶️</span>
+              <div class="scenario-text">
+                <strong id="stream-label">Auto Live Stream</strong>
+                <small id="stream-sub">Ticks every 3s</small>
+              </div>
+            </button>
           </div>
         </div>
       </section>
 
-      <!-- Key Metrics Overview -->
+      <!-- Key Visual Radial Metrics Row -->
       <section class="metrics-row">
-        <!-- Temperature Card -->
-        <div class="card metric-card" id="card-temp">
-          <div class="metric-header">
-            <span class="metric-title">Ambient Temperature</span>
-            <div class="metric-icon temp-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- 1. Temperature Gauge Card -->
+        <div class="card gauge-card card-temp" id="card-temp">
+          <div class="card-top-row">
+            <div class="metric-title-group">
+              <span class="metric-label">Ambient Temperature</span>
+              <span class="metric-subtitle">Sensor Node (DHT11)</span>
+            </div>
+            <div class="category-icon icon-flame">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
               </svg>
             </div>
           </div>
-          <div class="metric-value-container">
-            <span class="metric-number" id="temp-val">24.5</span>
-            <span class="metric-unit">°C</span>
+
+          <div class="dial-container">
+            <!-- Circular SVG Progress Meter -->
+            <svg class="circular-dial" viewBox="0 0 160 160">
+              <defs>
+                <linearGradient id="tempGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#06B6D4"/>
+                  <stop offset="50%" stop-color="#F59E0B"/>
+                  <stop offset="100%" stop-color="#EF4444"/>
+                </linearGradient>
+              </defs>
+              <circle class="dial-track" cx="80" cy="80" r="62"/>
+              <circle class="dial-progress" id="temp-dial-arc" cx="80" cy="80" r="62" stroke="url(#tempGradient)"/>
+            </svg>
+            <div class="dial-center-content">
+              <div class="readout-main">
+                <span id="temp-val">24.5</span><span class="unit">°C</span>
+              </div>
+              <span class="sub-readout" id="temp-fahrenheit">76.1 °F</span>
+            </div>
           </div>
-          <div class="metric-sub">
-            <span id="temp-fahrenheit">76.1 °F</span>
-            <span class="metric-range">Threshold: 5°C - 35°C</span>
-          </div>
-          <div class="meter-bar">
-            <div class="meter-fill" id="temp-meter" style="width: 48%;"></div>
+
+          <div class="gauge-footer">
+            <div class="scale-tags">
+              <span>0°C Min</span>
+              <span class="highlight-range">Target: 20-28°C</span>
+              <span>50°C Max</span>
+            </div>
           </div>
         </div>
 
-        <!-- Humidity Card -->
-        <div class="card metric-card" id="card-humidity">
-          <div class="metric-header">
-            <span class="metric-title">Relative Humidity</span>
-            <div class="metric-icon humidity-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <!-- 2. Relative Humidity Gauge Card -->
+        <div class="card gauge-card card-humidity" id="card-humidity">
+          <div class="card-top-row">
+            <div class="metric-title-group">
+              <span class="metric-label">Relative Humidity</span>
+              <span class="metric-subtitle">Atmospheric Moisture</span>
+            </div>
+            <div class="category-icon icon-drop">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
               </svg>
             </div>
           </div>
-          <div class="metric-value-container">
-            <span class="metric-number" id="humidity-val">48.0</span>
-            <span class="metric-unit">%</span>
+
+          <div class="dial-container">
+            <svg class="circular-dial" viewBox="0 0 160 160">
+              <defs>
+                <linearGradient id="humGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#38BDF8"/>
+                  <stop offset="60%" stop-color="#3B82F6"/>
+                  <stop offset="100%" stop-color="#10B981"/>
+                </linearGradient>
+              </defs>
+              <circle class="dial-track" cx="80" cy="80" r="62"/>
+              <circle class="dial-progress" id="humidity-dial-arc" cx="80" cy="80" r="62" stroke="url(#humGradient)"/>
+            </svg>
+            <div class="dial-center-content">
+              <div class="readout-main">
+                <span id="humidity-val">48.0</span><span class="unit">%</span>
+              </div>
+              <span class="sub-readout status-ideal" id="humidity-comfort">Comfort: Optimal</span>
+            </div>
           </div>
-          <div class="metric-sub">
-            <span id="humidity-comfort">Comfort: Ideal</span>
-            <span class="metric-range">Max Normal: 80%</span>
-          </div>
-          <div class="meter-bar">
-            <div class="meter-fill humidity-fill" id="humidity-meter" style="width: 48%;"></div>
+
+          <div class="gauge-footer">
+            <div class="scale-tags">
+              <span>0% Dry</span>
+              <span class="highlight-range">Optimal: 40-60%</span>
+              <span>100% Sat</span>
+            </div>
           </div>
         </div>
 
-        <!-- Heat Index ("Feels Like") -->
-        <div class="card metric-card" id="card-heat-index">
-          <div class="metric-header">
-            <span class="metric-title">Heat Index (Feels Like)</span>
-            <div class="metric-icon heat-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+        <!-- 3. Steadman Heat Index Gauge Card -->
+        <div class="card gauge-card card-heat" id="card-heat-index">
+          <div class="card-top-row">
+            <div class="metric-title-group">
+              <span class="metric-label">Heat Index ("Feels Like")</span>
+              <span class="metric-subtitle">Steadman/NOAA Equation</span>
+            </div>
+            <div class="category-icon icon-sun">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
               </svg>
             </div>
           </div>
-          <div class="metric-value-container">
-            <span class="metric-number" id="heat-index-val">24.8</span>
-            <span class="metric-unit">°C</span>
+
+          <div class="dial-container">
+            <svg class="circular-dial" viewBox="0 0 160 160">
+              <defs>
+                <linearGradient id="heatGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#10B981"/>
+                  <stop offset="40%" stop-color="#F59E0B"/>
+                  <stop offset="100%" stop-color="#EF4444"/>
+                </linearGradient>
+              </defs>
+              <circle class="dial-track" cx="80" cy="80" r="62"/>
+              <circle class="dial-progress" id="heat-dial-arc" cx="80" cy="80" r="62" stroke="url(#heatGradient)"/>
+            </svg>
+            <div class="dial-center-content">
+              <div class="readout-main">
+                <span id="heat-index-val">24.8</span><span class="unit">°C</span>
+              </div>
+              <span class="sub-readout status-safe" id="heat-index-risk">Risk: Low / Safe</span>
+            </div>
           </div>
-          <div class="metric-sub">
-            <span id="heat-index-risk">Risk Level: Low / Normal</span>
-            <span class="metric-range">Steadman Formula</span>
-          </div>
-          <div class="meter-bar">
-            <div class="meter-fill heat-fill" id="heat-meter" style="width: 32%;"></div>
+
+          <div class="gauge-footer">
+            <div class="scale-tags">
+              <span>Safe</span>
+              <span class="highlight-range">Caution: >35°C</span>
+              <span>Danger: >40°C</span>
+            </div>
           </div>
         </div>
 
-        <!-- Active Sensor Node Info -->
-        <div class="card metric-card node-card">
-          <div class="metric-header">
-            <span class="metric-title">Telemetry Node</span>
-            <div class="metric-icon node-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                <line x1="6" y1="6" x2="6.01" y2="6"/>
-                <line x1="6" y1="18" x2="6.01" y2="18"/>
+        <!-- 4. Active Node & Facility Card -->
+        <div class="card gauge-card card-node">
+          <div class="card-top-row">
+            <div class="metric-title-group">
+              <span class="metric-label">Active Sensing Station</span>
+              <span class="metric-subtitle">ESP32 + OLED Node</span>
+            </div>
+            <div class="category-icon icon-chip">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                <rect x="9" y="9" width="6" height="6"/>
+                <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
               </svg>
             </div>
           </div>
-          <div class="node-details">
-            <div class="detail-row">
-              <span class="detail-label">Device ID:</span>
-              <span class="detail-val" id="device-id-val">enviro-node-01</span>
+
+          <div class="node-profile">
+            <div class="node-field">
+              <span class="field-name">Station ID:</span>
+              <span class="field-val" id="device-id-val">enviro-node-01</span>
             </div>
-            <div class="detail-row">
-              <span class="detail-label">Location:</span>
-              <span class="detail-val" id="location-val">Campus Greenhouse Lab</span>
+            <div class="node-field">
+              <span class="field-name">Target Zone:</span>
+              <span class="field-val" id="location-val">Campus Greenhouse Lab</span>
             </div>
-            <div class="detail-row">
-              <span class="detail-label">Last Updated:</span>
-              <span class="detail-val" id="last-updated-val">Just now</span>
+            <div class="node-field">
+              <span class="field-name">Sampling Cadence:</span>
+              <span class="field-val">Every 5 Seconds</span>
+            </div>
+            <div class="node-field">
+              <span class="field-name">Last Heartbeat:</span>
+              <span class="field-val" id="last-updated-val">Just now</span>
             </div>
           </div>
-          <div class="status-summary" id="status-detail-text">
-            Climate parameters are within optimal ranges.
+
+          <div class="facility-status-box" id="status-detail-box">
+            <div class="status-summary-header">
+              <span id="facility-state-icon">✅</span>
+              <strong id="facility-state-title">Normal Climate State</strong>
+            </div>
+            <p id="status-detail-text">All parameters are balanced within safe biological and hardware limits.</p>
           </div>
         </div>
       </section>
 
-      <!-- Real-time SVG Trend Chart -->
+      <!-- Real-Time SVG Waveform Trendline Chart -->
       <section class="card chart-card">
-        <div class="card-header chart-header">
+        <div class="chart-header">
           <div>
-            <h2>Real-Time Environmental Trend</h2>
-            <span class="card-caption">Continuous telemetry stream (Temperature °C & Humidity %)</span>
+            <h2>Real-Time Environmental Trend Waveform</h2>
+            <span class="card-caption">Dual-axis gradient stream with continuous moving window</span>
           </div>
           <div class="chart-legend">
-            <span class="legend-item"><span class="legend-dot dot-temp"></span> Temperature (°C)</span>
-            <span class="legend-item"><span class="legend-dot dot-hum"></span> Humidity (%)</span>
+            <span class="legend-chip chip-temp">
+              <span class="legend-dot dot-temp"></span> Temperature (°C)
+            </span>
+            <span class="legend-chip chip-hum">
+              <span class="legend-dot dot-hum"></span> Humidity (%)
+            </span>
           </div>
         </div>
-        <div class="svg-chart-container">
-          <svg id="trend-chart" viewBox="0 0 800 240" preserveAspectRatio="none">
-            <!-- Grid lines dynamically injected -->
+
+        <div class="chart-wrapper">
+          <svg id="trend-chart" viewBox="0 0 900 260" preserveAspectRatio="none">
+            <defs>
+              <!-- Gradient under temperature curve -->
+              <linearGradient id="areaGradTemp" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#06B6D4" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#06B6D4" stop-opacity="0.0"/>
+              </linearGradient>
+              <!-- Gradient under humidity curve -->
+              <linearGradient id="areaGradHum" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#3B82F6" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Grid & Axis Lines -->
             <g id="chart-grid"></g>
-            <!-- Paths -->
+            <!-- Filled Areas -->
+            <path id="area-temp" fill="url(#areaGradTemp)" d=""></path>
+            <path id="area-hum" fill="url(#areaGradHum)" d=""></path>
+            <!-- Lines -->
             <path id="path-temp" class="chart-line line-temp" d=""></path>
             <path id="path-hum" class="chart-line line-hum" d=""></path>
-            <!-- Data Dots -->
+            <!-- Glowing Dots -->
             <g id="chart-dots"></g>
           </svg>
         </div>
-        <div class="chart-footer">
-          <span>10 samples window</span>
-          <span id="chart-latest-time">Updated recently</span>
+
+        <div class="chart-footer-row">
+          <span class="footer-note">Telemetry observation window: Last 10 chronological ticks</span>
+          <span class="footer-time" id="chart-latest-time">Waiting for data...</span>
         </div>
       </section>
 
-      <!-- Telemetry Event Log -->
+      <!-- Telemetry Event Log Table -->
       <section class="card table-card">
-        <div class="card-header">
-          <h2>Recent Telemetry Stream & DynamoDB Log</h2>
-          <span class="card-caption">Chronological record with TTL expiration</span>
+        <div class="card-header-bar">
+          <div>
+            <h2>Recent Telemetry Stream & DynamoDB Log</h2>
+            <span class="card-caption">Chronological audit stream with automatic 24-hr TTL</span>
+          </div>
+          <span class="counter-badge" id="log-count-badge">10 Records</span>
         </div>
+
         <div class="table-responsive">
           <table class="data-table">
             <thead>
               <tr>
-                <th>Time (UTC)</th>
-                <th>Device</th>
-                <th>Location</th>
-                <th>Temp</th>
+                <th>Timestamp (UTC)</th>
+                <th>Device Station</th>
+                <th>Zone / Location</th>
+                <th>Temperature</th>
                 <th>Humidity</th>
                 <th>Heat Index</th>
-                <th>Status</th>
+                <th>Classification</th>
               </tr>
             </thead>
             <tbody id="telemetry-table-body">
-              <!-- Injected by JavaScript -->
+              <!-- Dynamically populated by app.js -->
             </tbody>
           </table>
         </div>
@@ -226,8 +377,13 @@
 
     <!-- Footer -->
     <footer class="app-footer">
-      <p>Course: <strong>Cloud Computing (25CAI102PC205)</strong> · SR University · Product #23: IoT Environmental Dashboard</p>
-      <p>Stack: AWS Lambda (Python 3.12) · Amazon DynamoDB · Amazon API Gateway · Amazon S3 Static Hosting · ESP32 / Python Edge Simulator</p>
+      <div class="footer-credits">
+        <p><strong>Cloud Computing (25CAI102PC205)</strong> · SR University · Product #23: IoT Environmental Dashboard</p>
+        <p>Team: M. Yeshwanth (2503A53005) & V. Laxmiprasad (2503A53006) · Batch 59</p>
+      </div>
+      <div class="footer-stack">
+        <span>AWS Lambda</span> • <span>Amazon DynamoDB</span> • <span>API Gateway v2</span> • <span>S3 Static Hosting</span> • <span>ESP32 C++</span>
+      </div>
     </footer>
   </div>
 
