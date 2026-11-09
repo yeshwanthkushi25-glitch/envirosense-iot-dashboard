@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: EnviroSense IoT Environmental Telemetry & Climate Dashboard (SR University 25CAI102PC205 Product #23)
+
+Globals:
+  Function:
+    Runtime: python3.12
+    MemorySize: 128
+    Timeout: 10
+    Tracing: Active
+
+Resources:
+  TelemetryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-telemetry'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: deviceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: deviceId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+
+  EnviroApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - content-type
+          - x-api-key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  EnviroFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/
+      Handler: app.handler
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TelemetryTable
+          TELEMETRY_TTL_SECONDS: '86400'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TelemetryTable
+      Events:
+        PostTelemetry:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EnviroApi
+            Path: /telemetry
+            Method: POST
+        GetTelemetry:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EnviroApi
+            Path: /telemetry
+            Method: GET
+        GetAlerts:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref EnviroApi
+            Path: /alerts
+            Method: GET
+
+  DashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  DashboardBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DashboardBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadForWebsite
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${DashboardBucket.Arn}/*'
+
+Outputs:
+  EnviroApiUrl:
+    Description: API Gateway base URL for ESP32 and web dashboard
+    Value: !Sub 'https://${EnviroApi}.execute-api.${AWS::Region}.amazonaws.com'
+  DashboardBucketName:
+    Description: S3 bucket name for hosting dashboard frontend files
+    Value: !Ref DashboardBucket
+  DashboardWebsiteUrl:
+    Description: Public S3 website endpoint for the EnviroSense Dashboard
+    Value: !GetAtt DashboardBucket.WebsiteURL

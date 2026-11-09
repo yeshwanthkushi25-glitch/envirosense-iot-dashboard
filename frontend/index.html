@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EnviroSense — IoT Climate & Environmental Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            <circle cx="12" cy="12" r="5"/>
+          </svg>
+        </div>
+        <div>
+          <h1>EnviroSense</h1>
+          <p class="subtitle">Cloud Computing (25CAI102PC205) · Product #23 · SR University</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span id="environment-badge" class="badge badge-demo">DEMO MODE</span>
+        <span id="system-status-badge" class="badge badge-success">NORMAL</span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="dashboard-grid">
+      <!-- AWS Connection & Demo Controls -->
+      <section class="card config-card">
+        <div class="card-header">
+          <h2>Cloud Integration & Simulator Controls</h2>
+          <span class="card-caption">AWS HTTP API Gateway / S3 Direct Polling</span>
+        </div>
+        <form id="api-form" class="api-form">
+          <div class="input-group">
+            <label for="api-url">API Gateway URL</label>
+            <input type="url" id="api-url" placeholder="https://{id}.execute-api.us-east-1.amazonaws.com" spellcheck="false">
+          </div>
+          <div class="input-group input-key">
+            <label for="api-key">API Key (Optional)</label>
+            <input type="password" id="api-key" placeholder="x-api-key header value" spellcheck="false">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="btn-connect">Connect to AWS</button>
+            <button type="button" class="btn btn-secondary" id="btn-reset-demo">Reset to Demo</button>
+          </div>
+        </form>
+        <p id="connection-message" class="status-msg">Showing local demonstration state. Connect your AWS API Gateway to poll live DynamoDB telemetry.</p>
+
+        <div class="demo-controls">
+          <span class="control-label">One-Click Sensor Simulation Presets:</span>
+          <div class="button-group">
+            <button type="button" class="btn-chip" id="sim-normal">🟢 Optimal (24°C, 48%)</button>
+            <button type="button" class="btn-chip" id="sim-heat">🔥 Heatwave (41°C, 84%)</button>
+            <button type="button" class="btn-chip" id="sim-freeze">❄️ Cold Wave (2°C, 32%)</button>
+            <button type="button" class="btn-chip" id="sim-humid">💧 High Humidity (29°C, 92%)</button>
+            <button type="button" class="btn-chip btn-stream" id="sim-stream">▶️ Start Live Stream</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Key Metrics Overview -->
+      <section class="metrics-row">
+        <!-- Temperature Card -->
+        <div class="card metric-card" id="card-temp">
+          <div class="metric-header">
+            <span class="metric-title">Ambient Temperature</span>
+            <div class="metric-icon temp-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="metric-value-container">
+            <span class="metric-number" id="temp-val">24.5</span>
+            <span class="metric-unit">°C</span>
+          </div>
+          <div class="metric-sub">
+            <span id="temp-fahrenheit">76.1 °F</span>
+            <span class="metric-range">Threshold: 5°C - 35°C</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill" id="temp-meter" style="width: 48%;"></div>
+          </div>
+        </div>
+
+        <!-- Humidity Card -->
+        <div class="card metric-card" id="card-humidity">
+          <div class="metric-header">
+            <span class="metric-title">Relative Humidity</span>
+            <div class="metric-icon humidity-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="metric-value-container">
+            <span class="metric-number" id="humidity-val">48.0</span>
+            <span class="metric-unit">%</span>
+          </div>
+          <div class="metric-sub">
+            <span id="humidity-comfort">Comfort: Ideal</span>
+            <span class="metric-range">Max Normal: 80%</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill humidity-fill" id="humidity-meter" style="width: 48%;"></div>
+          </div>
+        </div>
+
+        <!-- Heat Index ("Feels Like") -->
+        <div class="card metric-card" id="card-heat-index">
+          <div class="metric-header">
+            <span class="metric-title">Heat Index (Feels Like)</span>
+            <div class="metric-icon heat-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="metric-value-container">
+            <span class="metric-number" id="heat-index-val">24.8</span>
+            <span class="metric-unit">°C</span>
+          </div>
+          <div class="metric-sub">
+            <span id="heat-index-risk">Risk Level: Low / Normal</span>
+            <span class="metric-range">Steadman Formula</span>
+          </div>
+          <div class="meter-bar">
+            <div class="meter-fill heat-fill" id="heat-meter" style="width: 32%;"></div>
+          </div>
+        </div>
+
+        <!-- Active Sensor Node Info -->
+        <div class="card metric-card node-card">
+          <div class="metric-header">
+            <span class="metric-title">Telemetry Node</span>
+            <div class="metric-icon node-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                <line x1="6" y1="6" x2="6.01" y2="6"/>
+                <line x1="6" y1="18" x2="6.01" y2="18"/>
+              </svg>
+            </div>
+          </div>
+          <div class="node-details">
+            <div class="detail-row">
+              <span class="detail-label">Device ID:</span>
+              <span class="detail-val" id="device-id-val">enviro-node-01</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Location:</span>
+              <span class="detail-val" id="location-val">Campus Greenhouse Lab</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Last Updated:</span>
+              <span class="detail-val" id="last-updated-val">Just now</span>
+            </div>
+          </div>
+          <div class="status-summary" id="status-detail-text">
+            Climate parameters are within optimal ranges.
+          </div>
+        </div>
+      </section>
+
+      <!-- Real-time SVG Trend Chart -->
+      <section class="card chart-card">
+        <div class="card-header chart-header">
+          <div>
+            <h2>Real-Time Environmental Trend</h2>
+            <span class="card-caption">Continuous telemetry stream (Temperature °C & Humidity %)</span>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item"><span class="legend-dot dot-temp"></span> Temperature (°C)</span>
+            <span class="legend-item"><span class="legend-dot dot-hum"></span> Humidity (%)</span>
+          </div>
+        </div>
+        <div class="svg-chart-container">
+          <svg id="trend-chart" viewBox="0 0 800 240" preserveAspectRatio="none">
+            <!-- Grid lines dynamically injected -->
+            <g id="chart-grid"></g>
+            <!-- Paths -->
+            <path id="path-temp" class="chart-line line-temp" d=""></path>
+            <path id="path-hum" class="chart-line line-hum" d=""></path>
+            <!-- Data Dots -->
+            <g id="chart-dots"></g>
+          </svg>
+        </div>
+        <div class="chart-footer">
+          <span>10 samples window</span>
+          <span id="chart-latest-time">Updated recently</span>
+        </div>
+      </section>
+
+      <!-- Telemetry Event Log -->
+      <section class="card table-card">
+        <div class="card-header">
+          <h2>Recent Telemetry Stream & DynamoDB Log</h2>
+          <span class="card-caption">Chronological record with TTL expiration</span>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Time (UTC)</th>
+                <th>Device</th>
+                <th>Location</th>
+                <th>Temp</th>
+                <th>Humidity</th>
+                <th>Heat Index</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="telemetry-table-body">
+              <!-- Injected by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>Course: <strong>Cloud Computing (25CAI102PC205)</strong> · SR University · Product #23: IoT Environmental Dashboard</p>
+      <p>Stack: AWS Lambda (Python 3.12) · Amazon DynamoDB · Amazon API Gateway · Amazon S3 Static Hosting · ESP32 / Python Edge Simulator</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

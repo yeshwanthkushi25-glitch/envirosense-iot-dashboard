@@ -1,0 +1,219 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EnviroSense IoT Climate & Environmental Dashboard - Pure CloudFormation Stack for AWS Learner Lab
+
+Parameters:
+  UseLabRole:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Set to 'true' when deploying in AWS Learner Lab (attaches existing LabRole).
+
+  StageName:
+    Type: String
+    Default: '$default'
+    Description: API Gateway deployment stage name.
+
+Conditions:
+  IsInLearnerLab: !Equals [!Ref UseLabRole, 'true']
+  CreateCustomRole: !Equals [!Ref UseLabRole, 'false']
+
+Resources:
+  # 1. DynamoDB Table
+  TelemetryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AWS::StackName}-telemetry'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: deviceId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: deviceId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: EnviroSense
+        - Key: Course
+          Value: 25CAI102PC205
+
+  # 2. IAM Role (Conditional: Only created if NOT in Learner Lab)
+  CustomLambdaRole:
+    Type: AWS::IAM::Role
+    Condition: CreateCustomRole
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource: !GetAtt TelemetryTable.Arn
+
+  # 3. AWS Lambda Function
+  TelemetryFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-handler'
+      Runtime: python3.12
+      Handler: app.handler
+      Code:
+        ZipFile: |
+          import json, os, time, boto3
+          table = boto3.resource('dynamodb').Table(os.environ.get('TABLE_NAME', 'envirosense-telemetry'))
+          def handler(event, context):
+              method = (event.get('requestContext', {}).get('http', {}).get('method') or event.get('httpMethod', '')).upper()
+              headers = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'}
+              if method == 'OPTIONS':
+                  return {'statusCode': 204, 'headers': headers, 'body': ''}
+              if method == 'POST':
+                  try:
+                      body = json.loads(event.get('body') or '{}')
+                      temp = round(float(body.get('temperatureC', 24.5)), 2)
+                      hum = round(float(body.get('humidityPct', 50.0)), 2)
+                      hi = round(float(body.get('heatIndexC', temp)), 2)
+                      status = 'HEAT_ALERT' if (temp >= 40 or hi >= 40) else ('FREEZE_ALERT' if temp <= 5 else ('HIGH_HUMIDITY' if hum >= 85 else 'NORMAL'))
+                      now = int(time.time())
+                      item = {'deviceId': str(body.get('deviceId', 'enviro-node-01')), 'recordedAt': body.get('recordedAt', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())), 'temperatureC': temp, 'humidityPct': hum, 'heatIndexC': hi, 'status': status, 'location': str(body.get('location', 'Campus Greenhouse Lab')), 'updatedAt': now, 'expiresAt': now + 86400}
+                      table.put_item(Item=item)
+                      return {'statusCode': 201, 'headers': headers, 'body': json.dumps({'message': 'Telemetry recorded', 'telemetry': item})}
+                  except Exception as e:
+                      return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': str(e)})}
+              if method == 'GET':
+                  res = table.scan()
+                  items = sorted(res.get('Items', []), key=lambda x: x.get('updatedAt', 0), reverse=True)
+                  return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'count': len(items), 'latest': items[0] if items else None, 'telemetry': items[:30]})}
+              return {'statusCode': 405, 'headers': headers, 'body': json.dumps({'error': 'Method not allowed'})}
+      MemorySize: 128
+      Timeout: 10
+      Role: !If
+        - IsInLearnerLab
+        - !Sub 'arn:aws:iam::${AWS::AccountId}:role/LabRole'
+        - !GetAtt CustomLambdaRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TelemetryTable
+          TELEMETRY_TTL_SECONDS: '86400'
+
+  # 4. Amazon API Gateway HTTP API (v2)
+  TelemetryApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AWS::StackName}-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - '*'
+        AllowHeaders:
+          - content-type
+          - x-api-key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # 5. API Gateway Integration
+  LambdaIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref TelemetryApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt TelemetryFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  # 6. API Routes
+  PostTelemetryRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TelemetryApi
+      RouteKey: 'POST /telemetry'
+      Target: !Sub 'integrations/${LambdaIntegration}'
+
+  GetTelemetryRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TelemetryApi
+      RouteKey: 'GET /telemetry'
+      Target: !Sub 'integrations/${LambdaIntegration}'
+
+  OptionsTelemetryRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TelemetryApi
+      RouteKey: 'OPTIONS /telemetry'
+      Target: !Sub 'integrations/${LambdaIntegration}'
+
+  # 7. API Gateway Stage
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref TelemetryApi
+      StageName: !Ref StageName
+      AutoDeploy: true
+
+  # 8. Lambda Permission for API Gateway
+  LambdaApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TelemetryFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TelemetryApi}/*/*'
+
+  # 9. Amazon S3 Bucket for Static Website
+  DashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::StackName}-dashboard-${AWS::AccountId}'
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+
+  # 10. S3 Bucket Policy for Public Read
+  DashboardBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DashboardBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PublicReadForWebsite
+            Effect: Allow
+            Principal: '*'
+            Action: s3:GetObject
+            Resource: !Sub '${DashboardBucket.Arn}/*'
+
+Outputs:
+  EnviroApiUrl:
+    Description: Base HTTP API Gateway URL for ingestion and dashboard
+    Value: !Sub 'https://${TelemetryApi}.execute-api.${AWS::Region}.amazonaws.com'
+
+  DashboardBucketName:
+    Description: S3 bucket name storing the dashboard frontend
+    Value: !Ref DashboardBucket
+
+  DashboardWebsiteUrl:
+    Description: Live public S3 website URL
+    Value: !GetAtt DashboardBucket.WebsiteURL
