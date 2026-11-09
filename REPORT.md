@@ -42,6 +42,8 @@ To build an end-to-end, serverless cloud-native IoT telemetry product called **E
 
 ### 2.1 Architecture Diagram
 
+![Figure 1: EnviroSense 4-Tier Serverless Cloud Architecture](docs/screenshots/architecture-diagram.png)
+
 ```mermaid
 flowchart TD
     subgraph EdgeLayer["Edge / Ingestion Layer"]
@@ -64,6 +66,9 @@ flowchart TD
     S3 -->|HTTP GET Polling| APIGW
     DemoSim -.->|Local State| S3
 ```
+
+![Figure 2: ESP32 Hardware Circuit Schematic](docs/screenshots/hardware-schematic.png)
+![Figure 3: Steadman Heat Index Risk Matrix](docs/screenshots/thermal-heat-matrix.png)
 
 ### 2.2 Technologies & Cloud Services Used
 
@@ -101,7 +106,12 @@ flowchart TD
 
 ## 4. Testing and Results
 
-### 4.1 Unit Testing Suite
+### 4.1 Visual Demonstration Screenshots
+![Figure 4: EnviroSense Dashboard Normal State](docs/screenshots/dashboard-operational-green.png)
+![Figure 5: EnviroSense Dashboard Heatwave Alert State](docs/screenshots/dashboard-failure-red.png)
+![Figure 6: Automated Unit Tests & Simulator Output](docs/screenshots/terminal-monitor-demo.png)
+
+### 4.2 Unit Testing Suite
 A comprehensive unit testing suite (`tests/test_lambda.py`) was implemented using Python's `unittest` framework with DynamoDB mocking, allowing verification without cloud credential requirements:
 
 | Test Case | Scenario Description | Expected Outcome | Actual Result |

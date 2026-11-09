@@ -275,6 +275,7 @@ def create_product_report(output_path, img_dir):
 
     add_figure("architecture-diagram.png", "Figure 1: EnviroSense 4-Tier Serverless Cloud Architecture Diagram")
     add_figure("hardware-schematic.png", "Figure 2: ESP32 DevKit V1 Hardware Circuit & Sensor Pinout Schematic")
+    add_figure("thermal-heat-matrix.png", "Figure 3: NOAA / Steadman Apparent Heat Index Risk Calculation Spectrum")
 
     # Technologies Table
     t_tech = doc.add_table(rows=6, cols=3)
@@ -329,9 +330,9 @@ def create_product_report(output_path, img_dir):
         "The figures below illustrate the live operational states of the EnviroSense S3 dashboard and terminal verification suites."
     )
 
-    add_figure("dashboard-operational-green.png", "Figure 3: EnviroSense Dashboard — Operational Normal State (Glowing Green)")
-    add_figure("dashboard-failure-red.png", "Figure 4: EnviroSense Dashboard — Critical Thermal Hazard State (Pulsing Red Alert)")
-    add_figure("terminal-monitor-demo.png", "Figure 5: Automated Unit Test Suite (100% Pass) & Edge Simulator Execution")
+    add_figure("dashboard-operational-green.png", "Figure 4: EnviroSense Dashboard — Operational Normal State (Glowing Green)")
+    add_figure("dashboard-failure-red.png", "Figure 5: EnviroSense Dashboard — Critical Thermal Hazard State (Pulsing Red Alert)")
+    add_figure("terminal-monitor-demo.png", "Figure 6: Automated Unit Test Suite (100% Pass) & Edge Simulator Execution")
 
     t_tests = doc.add_table(rows=8, cols=4)
     t_tests.alignment = WD_TABLE_ALIGNMENT.CENTER

@@ -213,24 +213,23 @@ def create_master_deck(output_path, img_dir):
         "  Non-blocking background loop recovers gracefully if network drops."
     ], ACCENT_CYAN)
 
-    # ---------------- SLIDE 5: Python Edge Simulator ----------------
+    # ---------------- SLIDE 5: Python Edge Simulator & Heat Matrix (WITH PICTURE!) ----------------
     s5 = prs.slides.add_slide(blank_layout)
     set_bg(s5)
-    add_header(s5, "SR University · Cloud Computing (25CAI102PC205) · Product No. 23", "Python Edge Sensor Simulator & Test Harness")
-    add_card(s5, Inches(0.8), Inches(1.8), Inches(5.6), Inches(5.1), "Standard-Library Software Architecture", [
-        "Zero External Dependencies: Built strictly with Python 3 standard library (urllib, math, random, json).",
-        "Flexible CLI Arguments: Supports --api-url, --device-id, --location, --interval, --mode.",
-        "Dry-Run Mode: '--dry-run' outputs formatted JSON to terminal without sending network requests.",
-        "Single-Shot Verification: '--once' sends exactly 1 reading and terminates (ideal for automated CI/CD checks).",
-        "Cross-Platform Compatibility: Runs identically on Windows, Linux, macOS, and Raspberry Pi."
+    add_header(s5, "SR University · Cloud Computing (25CAI102PC205) · Product No. 23", "Apparent Heat Index & Thermal Risk Spectrum")
+    heat_img = os.path.join(img_dir, "thermal-heat-matrix.png")
+    add_image_card(s5, Inches(0.8), Inches(1.7), Inches(7.4), Inches(5.2), heat_img, "Figure 3: NOAA / Steadman Heat Index Risk Matrix Calculation Spectrum")
+    add_card(s5, Inches(8.5), Inches(1.7), Inches(4.0), Inches(5.2), "Steadman Risk Calculation", [
+        "Serverless Computation:",
+        "  Calculated dynamically in Python 3.12 Lambda using Rothfusz regression.",
+        "Thermal Risk Bands:",
+        "  • Normal / Safe: < 27°C (Emerald)",
+        "  • Caution: 27°C - 32°C (Amber)",
+        "  • Extreme Caution: 32°C - 41°C",
+        "  • Critical Hazard: >= 41°C (Red)",
+        "Automated Triggers:",
+        "  Escalates to HEAT ALERT if temp or Heat Index exceeds 40°C."
     ], ACCENT_AMBER)
-    add_card(s5, Inches(6.8), Inches(1.8), Inches(5.6), Inches(5.1), "Thermodynamic Simulation Modes", [
-        "Normal Mode: Realistic room temperature (22-26°C, 45-55% RH) with natural Brownian noise.",
-        "Heatwave Mode: Severe thermal surge (40-44°C, 75-88% RH) generating Heat Index > 80°C.",
-        "Freeze Mode: Freezing environmental drop (0-4°C, 28-35% RH) for refrigeration facility tests.",
-        "Fluctuate Mode: Mathematical diurnal sine wave simulating day/night ambient temperature drift.",
-        "Instant Feedback: Terminal prints timestamped JSON, calculated Heat Index, and HTTP response code."
-    ], ACCENT_CYAN)
 
     # ---------------- SLIDE 6: Serverless Compute & Persistence ----------------
     s6 = prs.slides.add_slide(blank_layout)
