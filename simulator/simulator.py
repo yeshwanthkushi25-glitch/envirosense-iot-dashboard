@@ -35,31 +35,40 @@ def compute_heat_index(temp_c: float, rh: float) -> float:
     return round((hi_f - 32.0) * 5.0 / 9.0, 2)
 
 
-def generate_reading(mode: str, step: int) -> tuple[float, float]:
-    """Return realistic (temperature_c, humidity_pct) based on operational mode."""
-    if mode == "heatwave":
+def generate_reading(mode: str, step: int) -> tuple[float, float, float]:
+    """Return realistic (temperature_c, humidity_pct, gas_ppm) based on operational mode."""
+    if mode == "gasleak":
+        base_t = 26.5 + (random.uniform(-0.8, 1.2))
+        base_h = 52.0 + (random.uniform(-3.0, 3.0))
+        gas_ppm = round(random.uniform(680.0, 890.0), 1)
+    elif mode == "heatwave":
         base_t = 41.5 + (random.uniform(-1.0, 1.8))
         base_h = 82.0 + (random.uniform(-4.0, 6.0))
+        gas_ppm = round(random.uniform(220.0, 310.0), 1)
     elif mode == "freeze":
         base_t = 2.5 + (random.uniform(-1.5, 1.2))
         base_h = 32.0 + (random.uniform(-3.0, 4.0))
+        gas_ppm = round(random.uniform(140.0, 190.0), 1)
     elif mode == "fluctuate":
         # Diurnal sine wave cycle
         cycle = math.sin(step * 0.1)
         base_t = 26.0 + (cycle * 9.0) + random.uniform(-0.5, 0.5)
         base_h = 55.0 - (cycle * 15.0) + random.uniform(-1.0, 1.0)
+        gas_ppm = round(max(50.0, 180.0 + (cycle * 60.0) + random.uniform(-10.0, 10.0)), 1)
     else:  # normal
         base_t = 24.2 + random.uniform(-1.2, 1.2)
         base_h = 48.5 + random.uniform(-2.5, 2.5)
+        gas_ppm = round(random.uniform(160.0, 210.0), 1)
 
     temp_c = round(max(-40.0, min(80.0, base_t)), 2)
     hum_pct = round(max(0.0, min(100.0, base_h)), 2)
-    return temp_c, hum_pct
+    return temp_c, hum_pct, gas_ppm
 
 
 def make_payload(args: argparse.Namespace, step: int) -> dict:
-    temp_c, hum_pct = generate_reading(args.mode, step)
+    temp_c, hum_pct, gas_ppm = generate_reading(args.mode, step)
     hi_c = compute_heat_index(temp_c, hum_pct)
+    air_quality = "HAZARDOUS" if gas_ppm >= 600.0 else ("MODERATE" if gas_ppm >= 350.0 else "GOOD")
 
     return {
         "deviceId": args.device_id,
@@ -67,6 +76,8 @@ def make_payload(args: argparse.Namespace, step: int) -> dict:
         "temperatureC": temp_c,
         "humidityPct": hum_pct,
         "heatIndexC": hi_c,
+        "gasPpm": gas_ppm,
+        "airQuality": air_quality,
         "recordedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
@@ -94,8 +105,12 @@ def main() -> None:
     parser.add_argument("--device-id", default="enviro-node-01", help="Device identifier")
     parser.add_argument("--location", default="Campus Greenhouse Lab", help="Physical location label")
     parser.add_argument("--interval", type=float, default=5.0, help="Seconds between telemetry posts")
-    parser.add_argument("--mode", choices=["normal", "heatwave", "freeze", "fluctuate"], default="normal",
-                        help="Telemetry simulation pattern")
+    parser.add_argument(
+        "--mode",
+        choices=["normal", "heatwave", "freeze", "fluctuate", "gasleak"],
+        default="normal",
+        help="Telemetry simulation pattern",
+    )
     parser.add_argument("--once", action="store_true", help="Send a single reading and terminate")
     parser.add_argument("--dry-run", action="store_true", help="Format and print JSON payload without sending")
     args = parser.parse_args()

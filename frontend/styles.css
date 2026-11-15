@@ -486,6 +486,7 @@ body {
 .card-temp { color: var(--accent-coral); }
 .card-humidity { color: var(--accent-blue); }
 .card-heat { color: var(--accent-amber); }
+.card-gas { color: #a855f7; }
 .card-node { color: var(--accent-emerald); }
 
 .card-top-row {
@@ -523,6 +524,7 @@ body {
 .icon-flame { background: rgba(244, 63, 94, 0.15); color: var(--accent-coral); }
 .icon-drop { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
 .icon-sun { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+.icon-gas { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 .icon-chip { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
 
 /* Circular SVG Dial */
@@ -807,6 +809,7 @@ body {
 .tag-heat { background: rgba(244, 63, 94, 0.2); color: #f43f5e; }
 .tag-freeze { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
 .tag-humid { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.tag-gas { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
 
 /* Footer */
 .app-footer {

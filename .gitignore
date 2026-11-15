@@ -6,3 +6,10 @@ packaged.yaml
 .vscode/
 .idea/
 *.log
+.pio/*
+!.pio/build/
+.pio/build/*
+!.pio/build/esp32dev/
+.pio/build/esp32dev/*
+!.pio/build/esp32dev/firmware.bin
+!.pio/build/esp32dev/firmware.elf

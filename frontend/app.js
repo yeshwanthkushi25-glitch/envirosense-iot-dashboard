@@ -28,6 +28,10 @@ const heatIndexVal = document.querySelector("#heat-index-val");
 const heatIndexRisk = document.querySelector("#heat-index-risk");
 const heatDialArc = document.querySelector("#heat-dial-arc");
 
+const gasVal = document.querySelector("#gas-val");
+const gasStatus = document.querySelector("#gas-status");
+const gasDialArc = document.querySelector("#gas-dial-arc");
+
 const deviceIdVal = document.querySelector("#device-id-val");
 const locationVal = document.querySelector("#location-val");
 const lastUpdatedVal = document.querySelector("#last-updated-val");
@@ -95,21 +99,28 @@ let pollInterval = null;
 let streamInterval = null;
 let isStreaming = false;
 
-// 10-point initial dataset
+// 10-point initial dataset with MQ-135 Gas PPM & Air Quality
 const initialHistory = [
-  { time: "21:40:00", temp: 23.9, hum: 49.0, hi: 24.1, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:42:00", temp: 24.1, hum: 48.7, hi: 24.3, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:44:00", temp: 24.0, hum: 48.5, hi: 24.2, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:46:00", temp: 24.3, hum: 48.2, hi: 24.5, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:48:00", temp: 24.2, hum: 48.0, hi: 24.4, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:50:00", temp: 24.4, hum: 47.8, hi: 24.6, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:52:00", temp: 24.6, hum: 47.6, hi: 24.8, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:54:00", temp: 24.5, hum: 47.9, hi: 24.7, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:56:00", temp: 24.7, hum: 48.1, hi: 24.9, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
-  { time: "21:58:00", temp: 24.5, hum: 48.0, hi: 24.8, status: "NORMAL", device: "enviro-node-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:40:00", temp: 23.9, hum: 49.0, hi: 24.1, gas: 172, airQuality: "EXCELLENT", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:42:00", temp: 24.1, hum: 48.7, hi: 24.3, gas: 175, airQuality: "EXCELLENT", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:44:00", temp: 24.0, hum: 48.5, hi: 24.2, gas: 178, airQuality: "EXCELLENT", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:46:00", temp: 24.3, hum: 48.2, hi: 24.5, gas: 180, airQuality: "GOOD", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:48:00", temp: 24.2, hum: 48.0, hi: 24.4, gas: 182, airQuality: "GOOD", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:50:00", temp: 24.4, hum: 47.8, hi: 24.6, gas: 185, airQuality: "GOOD", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:52:00", temp: 24.6, hum: 47.6, hi: 24.8, gas: 183, airQuality: "GOOD", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:54:00", temp: 24.5, hum: 47.9, hi: 24.7, gas: 181, airQuality: "GOOD", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:56:00", temp: 24.7, hum: 48.1, hi: 24.9, gas: 184, airQuality: "GOOD", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
+  { time: "21:58:00", temp: 24.5, hum: 48.0, hi: 24.8, gas: 180, airQuality: "GOOD", status: "NORMAL", device: "enviro-esp32-01", loc: "Campus Greenhouse Lab" },
 ];
 
 let telemetryHistory = [...initialHistory];
+
+function getAirQualityLabel(ppm) {
+  if (ppm >= 600) return "HAZARDOUS";
+  if (ppm >= 350) return "MODERATE";
+  if (ppm >= 200) return "GOOD";
+  return "EXCELLENT";
+}
 
 // Steadman Heat Index Calculation
 function calculateHeatIndex(tempC, rh) {
@@ -138,6 +149,7 @@ function getHeatRiskLabel(hi) {
 }
 
 function getTableBadge(status) {
+  if (status === "GAS_ALERT") return '<span class="badge-tag tag-gas">☣️ GAS LEAK</span>';
   if (status === "HEAT_ALERT") return '<span class="badge-tag tag-heat">🔥 HEAT ALERT</span>';
   if (status === "FREEZE_ALERT") return '<span class="badge-tag tag-freeze">❄️ FREEZE ALERT</span>';
   if (status === "HIGH_HUMIDITY" || status === "WARNING") return '<span class="badge-tag tag-humid">💧 HIGH MOISTURE</span>';
@@ -156,7 +168,12 @@ function renderDashboard(latest) {
   heatIndexVal.textContent = hi.toFixed(1);
   heatIndexRisk.textContent = getHeatRiskLabel(hi);
 
-  deviceIdVal.textContent = latest.device || "enviro-node-01";
+  const gas = latest.gas ?? 180;
+  if (gasVal) gasVal.textContent = Math.round(gas);
+  const airQuality = latest.airQuality || getAirQualityLabel(gas);
+  if (gasStatus) gasStatus.textContent = `Air: ${airQuality} (${Math.round(gas)} PPM)`;
+
+  deviceIdVal.textContent = latest.device || "enviro-esp32-01";
   locationVal.textContent = latest.loc || "Campus Greenhouse Lab";
   lastUpdatedVal.textContent = latest.time || new Date().toLocaleTimeString();
 
@@ -173,9 +190,25 @@ function renderDashboard(latest) {
   const heatPct = Math.min(1, Math.max(0, hi / 50.0));
   heatDialArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - heatPct);
 
+  // Gas scale: 0 to 1000 PPM
+  if (gasDialArc) {
+    const gasPct = Math.min(1, Math.max(0, gas / 1000.0));
+    gasDialArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - gasPct);
+  }
+
   // 3. System Status Evaluation & Audio Tone
   systemBadge.className = "badge";
-  if (latest.status === "HEAT_ALERT" || latest.temp >= 40 || hi >= 40) {
+  if (latest.status === "GAS_ALERT" || gas >= 600) {
+    systemBadge.classList.add("badge-danger");
+    badgeStatusText.textContent = "GAS ALERT";
+    facilityStateIcon.textContent = "☣️";
+    facilityStateTitle.textContent = "Hazardous Gas Leak Detected";
+    facilityStateTitle.style.color = "#c084fc";
+    statusDetailText.textContent = `Critical air toxicity: MQ-135 detected ${Math.round(gas)} PPM. Hazardous volatile gases present!`;
+    statusDetailBox.style.borderColor = "#a855f7";
+    statusDetailBox.style.background = "rgba(168, 85, 247, 0.15)";
+    playHazardAlert();
+  } else if (latest.status === "HEAT_ALERT" || latest.temp >= 40 || hi >= 40) {
     systemBadge.classList.add("badge-danger");
     badgeStatusText.textContent = "HEAT ALERT";
     facilityStateIcon.textContent = "🔥";
@@ -226,11 +259,12 @@ function renderTable() {
   tableBody.innerHTML = reversed.map(row => `
     <tr>
       <td><code>${row.time}</code></td>
-      <td><strong>${row.device || "enviro-node-01"}</strong></td>
+      <td><strong>${row.device || "enviro-esp32-01"}</strong></td>
       <td>${row.loc || "Campus Greenhouse Lab"}</td>
       <td style="font-weight:700; color:var(--accent-cyan); font-size:0.875rem;">${row.temp.toFixed(1)} °C</td>
       <td style="font-weight:700; color:var(--accent-blue); font-size:0.875rem;">${row.hum.toFixed(1)} %</td>
       <td>${row.hi ? row.hi.toFixed(1) + " °C" : "—"}</td>
+      <td style="font-weight:700; color:#c084fc; font-size:0.875rem;">${Math.round(row.gas ?? 180)} PPM</td>
       <td>${getTableBadge(row.status)}</td>
     </tr>
   `).join("");
@@ -308,7 +342,7 @@ function setScenarioActive(btnId) {
   if (btn) btn.classList.add("active");
 }
 
-function applyPreset(temp, hum, status, note, btnId) {
+function applyPreset(temp, hum, gas, status, note, btnId) {
   setScenarioActive(btnId);
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -318,8 +352,10 @@ function applyPreset(temp, hum, status, note, btnId) {
     temp: Number(temp.toFixed(1)),
     hum: Number(hum.toFixed(1)),
     hi: hi,
+    gas: Number(gas),
+    airQuality: getAirQualityLabel(gas),
     status: status,
-    device: "enviro-node-01",
+    device: "enviro-esp32-01",
     loc: "Campus Greenhouse Lab"
   };
   pushTelemetry(item);
@@ -328,21 +364,28 @@ function applyPreset(temp, hum, status, note, btnId) {
 }
 
 document.querySelector("#sim-normal").addEventListener("click", () => {
-  applyPreset(24.5, 48.0, "NORMAL", "Optimal Greenhouse condition (24.5°C, 48%)", "#sim-normal");
+  applyPreset(24.5, 48.0, 180, "NORMAL", "Optimal Greenhouse condition (24.5°C, 48% RH, 180 PPM)", "#sim-normal");
   playChimeNormal();
 });
 
 document.querySelector("#sim-heat").addEventListener("click", () => {
-  applyPreset(41.8, 84.0, "HEAT_ALERT", "Critical Heatwave event! (>41°C, 84% humidity)", "#sim-heat");
+  applyPreset(41.8, 84.0, 240, "HEAT_ALERT", "Critical Heatwave event! (>41°C, 84% humidity)", "#sim-heat");
 });
 
 document.querySelector("#sim-freeze").addEventListener("click", () => {
-  applyPreset(2.4, 32.0, "FREEZE_ALERT", "Cold wave / frost hazard (2.4°C, 32%)", "#sim-freeze");
+  applyPreset(2.4, 32.0, 160, "FREEZE_ALERT", "Cold wave / frost hazard (2.4°C, 32% RH)", "#sim-freeze");
 });
 
 document.querySelector("#sim-humid").addEventListener("click", () => {
-  applyPreset(29.2, 92.0, "HIGH_HUMIDITY", "Tropical storm / high moisture (29.2°C, 92%)", "#sim-humid");
+  applyPreset(29.2, 92.0, 210, "HIGH_HUMIDITY", "Tropical storm / high moisture (29.2°C, 92% RH)", "#sim-humid");
 });
+
+const simGasBtn = document.querySelector("#sim-gas");
+if (simGasBtn) {
+  simGasBtn.addEventListener("click", () => {
+    applyPreset(26.0, 52.0, 780, "GAS_ALERT", "Toxic Gas Leak detected! (MQ-135: 780 PPM · Hazardous)", "#sim-gas");
+  });
+}
 
 // Live Continuous Simulation Stream
 const streamBtn = document.querySelector("#sim-stream");
@@ -372,13 +415,16 @@ streamBtn.addEventListener("click", () => {
       const last = telemetryHistory[telemetryHistory.length - 1];
       const deltaT = (Math.random() - 0.48) * 0.9 + (25.0 - last.temp) * 0.05;
       const deltaH = (Math.random() - 0.48) * 1.6 + (50.0 - last.hum) * 0.05;
+      const deltaG = (Math.random() - 0.48) * 12.0 + (180.0 - (last.gas || 180)) * 0.1;
 
       const newT = Number((last.temp + deltaT).toFixed(1));
       const newH = Number((last.hum + deltaH).toFixed(1));
+      const newG = Math.max(50, Math.min(1000, Number(((last.gas || 180) + deltaG).toFixed(0))));
       const hi = calculateHeatIndex(newT, newH);
 
       let status = "NORMAL";
-      if (newT >= 40 || hi >= 40) status = "HEAT_ALERT";
+      if (newG >= 600) status = "GAS_ALERT";
+      else if (newT >= 40 || hi >= 40) status = "HEAT_ALERT";
       else if (newT <= 5) status = "FREEZE_ALERT";
       else if (newH >= 85) status = "HIGH_HUMIDITY";
 
@@ -388,8 +434,10 @@ streamBtn.addEventListener("click", () => {
         temp: newT,
         hum: newH,
         hi: hi,
+        gas: newG,
+        airQuality: getAirQualityLabel(newG),
         status: status,
-        device: "enviro-node-01",
+        device: "enviro-esp32-01",
         loc: "Campus Greenhouse Lab"
       });
     }, 3000);
@@ -429,6 +477,8 @@ async function fetchFromApi() {
         temp: data.latest.temperatureC,
         hum: data.latest.humidityPct,
         hi: data.latest.heatIndexC,
+        gas: data.latest.gasPpm || 180,
+        airQuality: data.latest.airQuality || getAirQualityLabel(data.latest.gasPpm || 180),
         status: data.latest.status,
         device: data.latest.deviceId,
         loc: data.latest.location

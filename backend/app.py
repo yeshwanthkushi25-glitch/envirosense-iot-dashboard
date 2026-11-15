@@ -22,6 +22,8 @@ TEMP_FREEZE_THRESHOLD = 5.0      # <= 5.0 °C
 TEMP_HEAT_WARNING = 35.0         # >= 35.0 °C
 TEMP_HEAT_DANGER = 40.0          # >= 40.0 °C
 HUMIDITY_HIGH_WARNING = 80.0     # >= 80.0 %
+GAS_HAZARD_THRESHOLD = 600.0     # >= 600 PPM (Hazardous / Gas Leak)
+GAS_WARNING_THRESHOLD = 350.0    # >= 350 PPM (Elevated VOC / Smoke)
 
 
 def response(status_code: int, body: Any) -> dict[str, Any]:
@@ -77,8 +79,19 @@ def compute_heat_index(temp_c: float, humidity_pct: float) -> float:
     return round(hi_c, 2)
 
 
-def evaluate_status(temp_c: float, humidity_pct: float, heat_index_c: float) -> tuple[str, str]:
+def evaluate_status(
+    temp_c: float,
+    humidity_pct: float,
+    heat_index_c: float,
+    gas_ppm: float = 150.0,
+) -> tuple[str, str]:
     """Return status category and descriptive message."""
+    if gas_ppm >= GAS_HAZARD_THRESHOLD:
+        return (
+            "GAS_ALERT",
+            f"Hazardous gas concentration detected: {gas_ppm:.0f} PPM by"
+            " MQ-135 sensor.",
+        )
     if temp_c <= TEMP_FREEZE_THRESHOLD:
         return "FREEZE_ALERT", f"Low temperature warning: {temp_c}°C detected."
     if temp_c >= TEMP_HEAT_DANGER or heat_index_c >= TEMP_HEAT_DANGER:
@@ -87,6 +100,11 @@ def evaluate_status(temp_c: float, humidity_pct: float, heat_index_c: float) -> 
         return "WARNING", f"Elevated temperature detected: {temp_c}°C."
     if humidity_pct >= HUMIDITY_HIGH_WARNING:
         return "HIGH_HUMIDITY", f"High relative humidity: {humidity_pct}%."
+    if gas_ppm >= GAS_WARNING_THRESHOLD:
+        return (
+            "WARNING",
+            f"Elevated VOC / gas concentration: {gas_ppm:.0f} PPM.",
+        )
     return "NORMAL", "Climate parameters are within optimal ranges."
 
 
@@ -125,7 +143,26 @@ def validate_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
     else:
         heat_index_c = compute_heat_index(temp_c, humidity_pct)
 
-    status, status_detail = evaluate_status(temp_c, humidity_pct, heat_index_c)
+    # Optional MQ-135 Gas PPM (0 to 10000)
+    try:
+        gas_ppm = round(float(payload.get("gasPpm", 150.0)), 1)
+        if gas_ppm < 0.0:
+            gas_ppm = 0.0
+    except (TypeError, ValueError):
+        gas_ppm = 150.0
+
+    air_quality = str(payload.get("airQuality", "")).strip()
+    if not air_quality:
+        if gas_ppm >= GAS_HAZARD_THRESHOLD:
+            air_quality = "HAZARDOUS"
+        elif gas_ppm >= GAS_WARNING_THRESHOLD:
+            air_quality = "MODERATE"
+        elif gas_ppm >= 200.0:
+            air_quality = "GOOD"
+        else:
+            air_quality = "EXCELLENT"
+
+    status, status_detail = evaluate_status(temp_c, humidity_pct, heat_index_c, gas_ppm)
 
     # Timestamp handling
     recorded_at = str(payload.get("recordedAt", "")).strip()
@@ -145,6 +182,8 @@ def validate_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
         "temperatureC": temp_c,
         "humidityPct": humidity_pct,
         "heatIndexC": heat_index_c,
+        "gasPpm": gas_ppm,
+        "airQuality": air_quality,
         "status": status,
         "statusDetail": status_detail,
         "updatedAt": now,

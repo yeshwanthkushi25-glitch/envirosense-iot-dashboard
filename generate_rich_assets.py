@@ -26,22 +26,19 @@ def make_architecture_diagram():
             ha='center', va='center', color='#06B6D4', fontsize=12, weight='bold', fontfamily='sans-serif')
 
     tiers = [
-        {"x": 0.7, "y": 1.1, "w": 3.3, "h": 6.4, "title": "TIER 1: EDGE INGESTION", "color": "#06B6D4"},
+        {"x": 0.7, "y": 1.1, "w": 3.3, "h": 6.4, "title": "TIER 1: EDGE & VIRTUAL SIM", "color": "#06B6D4"},
         {"x": 4.5, "y": 1.1, "w": 2.8, "h": 6.4, "title": "TIER 2: API GATEWAY", "color": "#F59E0B"},
         {"x": 7.8, "y": 1.1, "w": 3.6, "h": 6.4, "title": "TIER 3: SERVERLESS COMPUTE", "color": "#FF9900"},
         {"x": 11.9, "y": 1.1, "w": 3.4, "h": 6.4, "title": "TIER 4: STORAGE & DASHBOARD", "color": "#10B981"}
     ]
 
     for t in tiers:
-        # Outer Card
         bg = patches.FancyBboxPatch((t['x'], t['y']), t['w'], t['h'],
                                     boxstyle="round,pad=0.1,rounding_size=0.28",
                                     facecolor='#10172A', edgecolor='#1E293B', lw=1.5)
         ax.add_patch(bg)
-        # Top Accent Line
         top_bar = patches.Rectangle((t['x'] + 0.2, t['y'] + t['h'] - 0.08), t['w'] - 0.4, 0.06, facecolor=t['color'])
         ax.add_patch(top_bar)
-        # Title
         ax.text(t['x'] + t['w']/2, t['y'] + t['h'] - 0.45, t['title'],
                 ha='center', va='center', color=t['color'], fontsize=11, weight='bold')
 
@@ -51,22 +48,24 @@ def make_architecture_diagram():
         ax.add_patch(card)
         ax.text(x + w/2, y + h - 0.35, title, ha='center', va='center', color='#FFFFFF', fontsize=11, weight='bold')
         for i, line in enumerate(lines):
-            ax.text(x + 0.2, y + h - 0.72 - (i * 0.34), "• " + line, ha='left', va='center', color='#CBD5E1', fontsize=9.2)
+            ax.text(x + 0.2, y + h - 0.72 - (i * 0.34), "• " + line, ha='left', va='center', color='#CBD5E1', fontsize=9.0)
 
     # Tier 1 Components
-    add_card(1.0, 4.4, 2.7, 2.4, "ESP32 Sensor Station", [
+    add_card(1.0, 4.4, 2.7, 2.4, "ESP32 Physical Station", [
         "DOIT ESP32 DevKit V1 (240MHz)",
-        "DHT11 / DHT22 Digital Sensor",
+        "DHT22 Precision Temp & Hum",
+        "MQ-135 Gas & Air Quality Sensor",
         "SSD1306 0.96\" I2C OLED",
-        "Wi-Fi HTTP Client (6s polling)"
+        "Wi-Fi HTTP Client (5s cadence)"
     ], "#06B6D4")
 
-    add_card(1.0, 1.6, 2.7, 2.5, "Python Edge Simulator", [
-        "Zero-dependency Python CLI",
-        "Diurnal thermodynamic sine model",
-        "Modes: Normal, Heat, Freeze",
-        "--dry-run and --once test flags"
-    ], "#38BDF8")
+    add_card(1.0, 1.6, 2.7, 2.5, "Wokwi VS Code Simulator", [
+        "Wokwi Extension + diagram.json",
+        "Virtual Wokwi-GUEST Wi-Fi",
+        "host.wokwi.internal bridge",
+        "Interactive DHT22 & MQ-135 sliders",
+        "Zero-hardware live cloud link"
+    ], "#C084FC")
 
     # Tier 2 Components
     add_card(4.7, 4.4, 2.4, 2.4, "Amazon API Gateway v2", [
@@ -77,42 +76,44 @@ def make_architecture_diagram():
         "Sub-15ms Latency Routing"
     ], "#F59E0B")
 
-    add_card(4.7, 1.6, 2.4, 2.5, "Security & Gateway Config", [
-        "Auto-deploy stage: $default",
-        "SSL / TLS 1.3 Encryption",
-        "Optional x-api-key intake",
-        "CORS Preflight (OPTIONS 204)"
-    ], "#FBBF24")
+    add_card(4.7, 1.6, 2.4, 2.5, "Local Bridge Server", [
+        "Python HTTP Server & Gateway",
+        "Static Frontend Asset Delivery",
+        "CORS Preflight (OPTIONS)",
+        "Bridges Wokwi to Dashboard"
+    ], "#38BDF8")
 
     # Tier 3 Components
-    add_card(8.1, 4.3, 3.0, 2.5, "AWS Lambda Function", [
-        "Runtime: Python 3.12 (128 MB)",
-        "Input sanitization (-40°C to 85°C)",
+    add_card(8.1, 4.4, 3.0, 2.4, "AWS Lambda Function", [
+        "Python 3.12 Serverless Runtime",
         "Steadman Heat Index Engine",
-        "DynamoDBCrudPolicy IAM bind"
+        "MQ-135 Gas Hazard Evaluator",
+        "128 MB RAM (Sub-cent scale)",
+        "Parameterized LabRole Binding"
     ], "#FF9900")
 
-    add_card(8.1, 1.6, 3.0, 2.4, "Automated Hazard Classifier", [
-        "HEAT_ALERT: Temp or HI >= 40°C",
-        "FREEZE_ALERT: Temp <= 5°C",
-        "HIGH_HUMIDITY: Humidity >= 85%",
-        "NORMAL: Climate equilibrium"
-    ], "#F43F5E")
+    add_card(8.1, 1.6, 3.0, 2.5, "Real-Time Classification", [
+        "NORMAL: Balanced equilibrium",
+        "GAS_ALERT: >= 600 PPM VOCs",
+        "HEAT_ALERT: Heat Index >= 40°C",
+        "FREEZE_ALERT: Temp <= 5°C"
+    ], "#FB923C")
 
     # Tier 4 Components
-    add_card(12.2, 4.4, 2.8, 2.4, "Amazon DynamoDB (NoSQL)", [
-        "Table: envirosense-telemetry",
-        "Partition Key: deviceId (String)",
-        "Pay-Per-Request Capacity",
-        "24-hr TTL: expiresAt attribute"
-    ], "#3B82F6")
-
-    add_card(12.2, 1.6, 2.8, 2.5, "Amazon S3 Static Website", [
-        "Public Read Website Hosting",
-        "HTML5 / CSS3 Glassmorphism",
-        "Zero external CDN scripts",
-        "Offline interactive Demo presets"
+    add_card(12.2, 4.4, 2.8, 2.4, "Amazon DynamoDB", [
+        "Pay-Per-Request On-Demand",
+        "Partition Key: deviceId (S)",
+        "Sort Key: recordedAt (S)",
+        "24-Hour TTL Auto-Pruning",
+        "Zero Idle Cloud Cost ($0.00)"
     ], "#10B981")
+
+    add_card(12.2, 1.6, 2.8, 2.5, "Responsive Web Dashboard", [
+        "4 Circular SVG Radial Gauges",
+        "DHT22 + MQ-135 Real-time Views",
+        "Web Audio Synthesizer Sirens",
+        "Interactive Scenario Presets"
+    ], "#34D399")
 
     # Connecting Arrows
     def draw_arrow(x1, y1, x2, y2, text, color='#94A3B8'):
@@ -124,14 +125,14 @@ def make_architecture_diagram():
                     bbox=dict(boxstyle="round,pad=0.2", facecolor='#070A13', edgecolor=color, lw=1))
 
     draw_arrow(3.7, 5.6, 4.7, 5.6, "HTTP POST JSON", "#06B6D4")
-    draw_arrow(3.7, 2.8, 4.7, 2.8, "HTTP POST JSON", "#38BDF8")
+    draw_arrow(3.7, 2.8, 4.7, 2.8, "Wokwi Internal Bridge", "#C084FC")
     draw_arrow(7.1, 5.6, 8.1, 5.6, "Proxy Event", "#F59E0B")
     draw_arrow(11.1, 5.6, 12.2, 5.6, "PutItem + TTL", "#FF9900")
 
     # S3 Polling dashed arrow
     ax.annotate('', xy=(7.1, 2.0), xytext=(12.2, 2.0),
                 arrowprops=dict(arrowstyle="-|>", color="#10B981", lw=2, linestyle="dashed", mutation_scale=16))
-    ax.text(9.65, 2.25, "GET /telemetry (6s client polling)", ha='center', va='center', color="#10B981", fontsize=8.5, weight='bold',
+    ax.text(9.65, 2.25, "GET /telemetry (5s client polling)", ha='center', va='center', color="#10B981", fontsize=8.5, weight='bold',
             bbox=dict(boxstyle="round,pad=0.2", facecolor='#070A13', edgecolor="#10B981", lw=1))
 
     plt.tight_layout()
@@ -151,9 +152,9 @@ def make_hardware_schematic():
     ax.set_ylim(0, 9)
     ax.axis('off')
 
-    ax.text(8, 8.4, "EnviroSense — ESP32 + DHT11 + OLED Hardware Wiring Schematic", 
+    ax.text(8, 8.45, "EnviroSense — ESP32 + DHT22 + MQ-135 + OLED Hardware Schematic", 
             ha='center', va='center', color='#FFFFFF', fontsize=22, weight='bold')
-    ax.text(8, 7.95, "DOIT ESP32 DEVKIT V1 · 0.96\" I2C OLED (SSD1306) · DHT11 TEMPERATURE & HUMIDITY SENSOR", 
+    ax.text(8, 8.0, "DOIT ESP32 DEVKIT V1 · DHT22 TEMP & HUMIDITY · MQ-135 GAS SENSOR · SSD1306 OLED · WOKWI COMPATIBLE", 
             ha='center', va='center', color='#06B6D4', fontsize=11, weight='bold')
 
     # ESP32 Main Board (Center)
@@ -175,74 +176,72 @@ def make_hardware_schematic():
     ax.text(8.0, 1.65, "Micro USB", ha='center', va='center', color='#0F172A', fontsize=7.5, weight='bold')
 
     # ESP32 Pin Labels
-    # Left: 3V3 (y=3.8), GND (y=2.8)
-    ax.plot([5.8, 6.2], [3.8, 3.8], color='#EF4444', lw=5)
-    ax.text(6.3, 3.8, "3V3 (Power Out)", color='#F8FAFC', fontsize=10, weight='bold', va='center')
+    # Left: 3V3 (y=4.5), 5V/VIN (y=3.8), GND (y=2.8)
+    ax.plot([5.8, 6.2], [4.5, 4.5], color='#EF4444', lw=5)
+    ax.text(6.3, 4.5, "3V3 (3.3V Rail)", color='#F8FAFC', fontsize=9.5, weight='bold', va='center')
+
+    ax.plot([5.8, 6.2], [3.8, 3.8], color='#F97316', lw=5)
+    ax.text(6.3, 3.8, "5V / VIN (Power)", color='#F8FAFC', fontsize=9.5, weight='bold', va='center')
 
     ax.plot([5.8, 6.2], [2.8, 2.8], color='#64748B', lw=5)
-    ax.text(6.3, 2.8, "GND (Common)", color='#F8FAFC', fontsize=10, weight='bold', va='center')
+    ax.text(6.3, 2.8, "GND (Common)", color='#F8FAFC', fontsize=9.5, weight='bold', va='center')
 
-    # Right: GPIO 4 (y=4.2), GPIO 21 (y=3.4), GPIO 22 (y=2.6)
-    ax.plot([9.8, 10.2], [4.2, 4.2], color='#38BDF8', lw=5)
-    ax.text(9.7, 4.2, "GPIO 4 (DHT Data)", color='#F8FAFC', fontsize=10, weight='bold', ha='right', va='center')
+    # Right: GPIO 4 (y=4.6), GPIO 34 (y=3.9), GPIO 35 (y=3.3), GPIO 21 (y=2.7), GPIO 22 (y=2.1)
+    ax.plot([9.8, 10.2], [4.6, 4.6], color='#38BDF8', lw=5)
+    ax.text(9.7, 4.6, "GPIO 4 (DHT22 Data)", color='#F8FAFC', fontsize=9.5, weight='bold', ha='right', va='center')
 
-    ax.plot([9.8, 10.2], [3.4, 3.4], color='#10B981', lw=5)
-    ax.text(9.7, 3.4, "GPIO 21 (I2C SDA)", color='#F8FAFC', fontsize=10, weight='bold', ha='right', va='center')
+    ax.plot([9.8, 10.2], [3.9, 3.9], color='#C084FC', lw=5)
+    ax.text(9.7, 3.9, "GPIO 34 (MQ135 AOUT)", color='#F8FAFC', fontsize=9.5, weight='bold', ha='right', va='center')
 
-    ax.plot([9.8, 10.2], [2.6, 2.6], color='#F59E0B', lw=5)
-    ax.text(9.7, 2.6, "GPIO 22 (I2C SCL)", color='#F8FAFC', fontsize=10, weight='bold', ha='right', va='center')
+    ax.plot([9.8, 10.2], [3.3, 3.3], color='#22D3EE', lw=5)
+    ax.text(9.7, 3.3, "GPIO 35 (MQ135 DOUT)", color='#F8FAFC', fontsize=9.5, weight='bold', ha='right', va='center')
 
-    # 2. DHT11 Sensor (Left side)
-    dht = patches.FancyBboxPatch((1.0, 2.2), 3.0, 4.5,
-                                boxstyle="round,pad=0.1,rounding_size=0.25",
+    ax.plot([9.8, 10.2], [2.7, 2.7], color='#10B981', lw=5)
+    ax.text(9.7, 2.7, "GPIO 21 (I2C SDA)", color='#F8FAFC', fontsize=9.5, weight='bold', ha='right', va='center')
+
+    ax.plot([9.8, 10.2], [2.1, 2.1], color='#F59E0B', lw=5)
+    ax.text(9.7, 2.1, "GPIO 22 (I2C SCL)", color='#F8FAFC', fontsize=9.5, weight='bold', ha='right', va='center')
+
+    # 1. DHT22 Sensor (Left Top)
+    dht = patches.FancyBboxPatch((1.0, 4.5), 3.2, 2.8,
+                                boxstyle="round,pad=0.1,rounding_size=0.22",
                                 facecolor='#0284C7', edgecolor='#38BDF8', lw=2.5)
     ax.add_patch(dht)
-    ax.text(2.5, 6.0, "DHT11 SENSOR", ha='center', va='center', color='#FFFFFF', fontsize=15, weight='bold')
-    ax.text(2.5, 5.6, "Digital Temp & Humidity", ha='center', va='center', color='#E0F2FE', fontsize=10)
+    ax.text(2.6, 6.8, "DHT22 SENSOR", ha='center', va='center', color='#FFFFFF', fontsize=13, weight='bold')
+    ax.text(2.6, 6.4, "Precision Temp & Hum", ha='center', va='center', color='#E0F2FE', fontsize=9)
+    ax.text(2.6, 5.0, "Pinout:\nVCC (3V3) | DATA (GPIO 4)\nNC (Float) | GND (Common)", ha='center', va='center', color='#FFFFFF', fontsize=8.5, weight='bold')
 
-    # Grille pattern on DHT11
-    for gy in [5.0, 4.6, 4.2, 3.8, 3.4]:
-        ax.plot([1.6, 3.4], [gy, gy], color='#0369A1', lw=4)
-
-    ax.text(2.5, 2.7, "Pinout: VCC | DATA | GND", ha='center', va='center', color='#FFFFFF', fontsize=9.5, weight='bold')
+    # 2. MQ-135 Gas Sensor (Left Bottom)
+    mq = patches.FancyBboxPatch((1.0, 1.4), 3.2, 2.7,
+                                boxstyle="round,pad=0.1,rounding_size=0.22",
+                                facecolor='#581C87', edgecolor='#C084FC', lw=2.5)
+    ax.add_patch(mq)
+    ax.text(2.6, 3.65, "MQ-135 SENSOR", ha='center', va='center', color='#FFFFFF', fontsize=13, weight='bold')
+    ax.text(2.6, 3.3, "Air Quality & Toxic Gas", ha='center', va='center', color='#E9D5FF', fontsize=9)
+    ax.text(2.6, 2.1, "Pinout:\nVCC (5V) | GND (Common)\nAOUT (GPIO 34 ADC1)\nDOUT (GPIO 35)", ha='center', va='center', color='#FFFFFF', fontsize=8.5, weight='bold')
 
     # 3. SSD1306 OLED (Right side)
-    oled = patches.FancyBboxPatch((11.8, 2.0), 3.2, 4.8,
+    oled = patches.FancyBboxPatch((11.8, 1.8), 3.2, 5.2,
                                  boxstyle="round,pad=0.1,rounding_size=0.25",
                                  facecolor='#1E293B', edgecolor='#F59E0B', lw=2.5)
     ax.add_patch(oled)
-    ax.text(13.4, 6.2, "SSD1306 OLED", ha='center', va='center', color='#FFFFFF', fontsize=14, weight='bold')
-    ax.text(13.4, 5.85, "0.96\" I2C Monochrome", ha='center', va='center', color='#94A3B8', fontsize=9.5)
+    ax.text(13.4, 6.6, "SSD1306 OLED", ha='center', va='center', color='#FFFFFF', fontsize=14, weight='bold')
+    ax.text(13.4, 6.25, "0.96\" I2C Monochrome", ha='center', va='center', color='#94A3B8', fontsize=9.5)
 
     # OLED Glass area
-    screen = patches.Rectangle((12.2, 3.3), 2.4, 2.2, facecolor='#000000', edgecolor='#475569', lw=1.5)
+    screen = patches.Rectangle((12.2, 3.2), 2.4, 2.7, facecolor='#000000', edgecolor='#475569', lw=1.5)
     ax.add_patch(screen)
-    ax.text(13.4, 4.9, "EnviroSense  WiFi:OK", ha='center', va='center', color='#F59E0B', fontsize=8, weight='bold')
-    ax.text(13.4, 4.3, "Temp: 24.5 C", ha='center', va='center', color='#38BDF8', fontsize=9.5, weight='bold')
-    ax.text(13.4, 3.8, "Hum:  48.0 %", ha='center', va='center', color='#34D399', fontsize=9.5, weight='bold')
+    ax.text(13.4, 5.4, "EnviroSense  WiFi:OK", ha='center', va='center', color='#F59E0B', fontsize=8, weight='bold')
+    ax.text(13.4, 4.8, "T: 24.5C  H: 48%", ha='center', va='center', color='#38BDF8', fontsize=8.5, weight='bold')
+    ax.text(13.4, 4.3, "HI: 24.3C Gas: 180", ha='center', va='center', color='#34D399', fontsize=8.5, weight='bold')
+    ax.text(13.4, 3.8, "Air: GOOD  STATUS:OK", ha='center', va='center', color='#C084FC', fontsize=8.5, weight='bold')
 
-    ax.text(13.4, 2.5, "Pinout: VCC | GND | SCL | SDA", ha='center', va='center', color='#CBD5E1', fontsize=9, weight='bold')
+    ax.text(13.4, 2.4, "Pinout: VCC | GND | SCL | SDA", ha='center', va='center', color='#CBD5E1', fontsize=9, weight='bold')
 
-    # Color-coded Wires
-    # 3.3V Power (Red)
-    ax.annotate("", xy=(5.8, 3.8), xytext=(4.0, 3.2),
-                arrowprops=dict(arrowstyle="-", color="#EF4444", lw=3, connectionstyle="angle,angleA=0,angleB=90,rad=10"))
-    ax.text(4.7, 3.9, "3.3V Power Rail", color="#EF4444", fontsize=9, weight='bold')
-
-    # DHT11 Data to GPIO 4 (Blue)
-    ax.annotate("", xy=(10.2, 4.2), xytext=(4.0, 2.8),
-                arrowprops=dict(arrowstyle="-", color="#38BDF8", lw=3, connectionstyle="arc3,rad=0.35"))
-    ax.text(7.2, 1.15, "DHT11 DATA ────────> GPIO 4", color="#38BDF8", fontsize=9.5, weight='bold')
-
-    # OLED SDA (Green)
-    ax.annotate("", xy=(11.8, 2.8), xytext=(10.2, 3.4),
-                arrowprops=dict(arrowstyle="-", color="#10B981", lw=3, connectionstyle="arc3,rad=-0.1"))
-    ax.text(11.0, 3.45, "SDA ──> GPIO 21", color="#10B981", fontsize=9, weight='bold')
-
-    # OLED SCL (Yellow)
-    ax.annotate("", xy=(11.8, 3.1), xytext=(10.2, 2.6),
-                arrowprops=dict(arrowstyle="-", color="#F59E0B", lw=3, connectionstyle="arc3,rad=-0.2"))
-    ax.text(11.0, 2.3, "SCL ──> GPIO 22", color="#F59E0B", fontsize=9, weight='bold')
+    # Wokwi simulation badge
+    wokwi_badge = patches.FancyBboxPatch((5.8, 0.75), 4.4, 0.8, boxstyle="round,pad=0.08", facecolor='#1E1E38', edgecolor='#C084FC', lw=1.5)
+    ax.add_patch(wokwi_badge)
+    ax.text(8.0, 1.15, "⚡ WOKWI VS CODE SIMULATOR COMPATIBLE", ha='center', va='center', color='#C084FC', fontsize=9.5, weight='bold')
 
     out_path = os.path.join(screenshots_dir, "hardware-schematic.png")
     plt.savefig(out_path, dpi=120, bbox_inches='tight', facecolor=fig.get_facecolor())
@@ -266,7 +265,6 @@ def make_heat_matrix_chart():
     hums = np.linspace(20, 100, 100)
     T, H = np.meshgrid(temps, hums)
 
-    # Convert to Fahrenheit for Steadman formula
     T_F = (T * 9.0 / 5.0) + 32.0
     HI_F = (
         -42.379 + (2.04901523 * T_F) + (10.14333127 * H)
@@ -275,7 +273,6 @@ def make_heat_matrix_chart():
     )
     HI_C = (HI_F - 32.0) * 5.0 / 9.0
 
-    # Contour plot with thermal risk levels
     levels = [15, 27, 32, 41, 54, 80]
     colors = ['#10B981', '#F59E0B', '#F97316', '#EF4444', '#7F1D1D']
     cs = ax.contourf(temps, hums, HI_C, levels=levels, colors=colors, alpha=0.85)
@@ -289,7 +286,6 @@ def make_heat_matrix_chart():
     ax.tick_params(colors='#94A3B8', labelsize=11)
     ax.grid(color='#334155', linestyle='--', linewidth=0.8, alpha=0.6)
 
-    # Risk Labels Annotations
     ax.text(23, 40, "NORMAL / SAFE\n(<27°C)", color='#FFFFFF', fontsize=12, weight='bold', ha='center', bbox=dict(boxstyle="round", facecolor='#064E3B', alpha=0.8))
     ax.text(28, 60, "CAUTION\n(27°C - 32°C)", color='#FFFFFF', fontsize=12, weight='bold', ha='center', bbox=dict(boxstyle="round", facecolor='#78350F', alpha=0.8))
     ax.text(34, 70, "EXTREME CAUTION\n(32°C - 41°C)", color='#FFFFFF', fontsize=12, weight='bold', ha='center', bbox=dict(boxstyle="round", facecolor='#7C2D12', alpha=0.8))

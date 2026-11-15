@@ -104,6 +104,13 @@
                 <small>29.2°C · 92% RH · Moist</small>
               </div>
             </button>
+            <button type="button" class="scenario-card" id="sim-gas">
+              <span class="scenario-icon">☣️</span>
+              <div class="scenario-text">
+                <strong>Gas Leak Hazard</strong>
+                <small>MQ-135: 750 PPM · Alert</small>
+              </div>
+            </button>
             <button type="button" class="scenario-card card-stream" id="sim-stream">
               <span class="scenario-icon" id="stream-icon">▶️</span>
               <div class="scenario-text">
@@ -122,7 +129,7 @@
           <div class="card-top-row">
             <div class="metric-title-group">
               <span class="metric-label">Ambient Temperature</span>
-              <span class="metric-subtitle">Sensor Node (DHT11)</span>
+              <span class="metric-subtitle">Sensor Node (DHT22)</span>
             </div>
             <div class="category-icon icon-flame">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -248,12 +255,56 @@
           </div>
         </div>
 
-        <!-- 4. Active Node & Facility Card -->
+        <!-- 4. Air Quality & Gas Detection Gauge Card (MQ-135) -->
+        <div class="card gauge-card card-gas" id="card-gas">
+          <div class="card-top-row">
+            <div class="metric-title-group">
+              <span class="metric-label">Air Quality & Gas</span>
+              <span class="metric-subtitle">MQ-135 Sensor</span>
+            </div>
+            <div class="category-icon icon-gas">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </div>
+          </div>
+
+          <div class="dial-container">
+            <svg class="circular-dial" viewBox="0 0 160 160">
+              <defs>
+                <linearGradient id="gasGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#10B981"/>
+                  <stop offset="50%" stop-color="#F59E0B"/>
+                  <stop offset="100%" stop-color="#EF4444"/>
+                </linearGradient>
+              </defs>
+              <circle class="dial-track" cx="80" cy="80" r="62"/>
+              <circle class="dial-progress" id="gas-dial-arc" cx="80" cy="80" r="62" stroke="url(#gasGradient)"/>
+            </svg>
+            <div class="dial-center-content">
+              <div class="readout-main">
+                <span id="gas-val">180</span><span class="unit">PPM</span>
+              </div>
+              <span class="sub-readout status-safe" id="gas-status">Air Quality: Good</span>
+            </div>
+          </div>
+
+          <div class="gauge-footer">
+            <div class="scale-tags">
+              <span>0 PPM</span>
+              <span class="highlight-range">Normal: &lt;350</span>
+              <span>1000 Max</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. Active Node & Facility Card -->
         <div class="card gauge-card card-node">
           <div class="card-top-row">
             <div class="metric-title-group">
               <span class="metric-label">Active Sensing Station</span>
-              <span class="metric-subtitle">ESP32 + OLED Node</span>
+              <span class="metric-subtitle">ESP32 + DHT22 + MQ135 + OLED</span>
             </div>
             <div class="category-icon icon-chip">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -364,6 +415,7 @@
                 <th>Temperature</th>
                 <th>Humidity</th>
                 <th>Heat Index</th>
+                <th>Gas Level</th>
                 <th>Classification</th>
               </tr>
             </thead>

@@ -124,6 +124,25 @@ class EnviroSenseLambdaTests(unittest.TestCase):
         self.assertEqual(body["count"], 2)
         self.assertEqual(body["latest"]["deviceId"], "enviro-node-01")
 
+    def test_post_flags_gas_alert(self):
+        event = {
+            "requestContext": {"http": {"method": "POST"}},
+            "body": json.dumps({
+                "deviceId": "enviro-node-01",
+                "temperatureC": 25.0,
+                "humidityPct": 50.0,
+                "gasPpm": 750.0,
+            }),
+        }
+        with patch.object(app, "table", self.table):
+            result = app.handler(event, None)
+
+        self.assertEqual(result["statusCode"], 201)
+        stored = self.table.put_item.call_args.kwargs["Item"]
+        self.assertEqual(stored["status"], "GAS_ALERT")
+        self.assertEqual(stored["airQuality"], "HAZARDOUS")
+        self.assertEqual(stored["gasPpm"], 750.0)
+
     def test_options_cors_preflight(self):
         event = {"requestContext": {"http": {"method": "OPTIONS"}}}
         result = app.handler(event, None)
