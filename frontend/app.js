@@ -444,9 +444,21 @@ streamBtn.addEventListener("click", () => {
   }
 });
 
-// Live AWS API Polling
+// Live AWS / Wokwi Local Bridge API Polling
+function getActiveApiUrl() {
+  const manual = apiUrlInput.value.trim().replace(/\/$/, "");
+  if (manual) return manual;
+  // If served over HTTP (e.g. localhost:3000), use current origin as default bridge
+  if (window.location.protocol.startsWith("http")) {
+    return window.location.origin;
+  }
+  return "";
+}
+
+let lastTelemetryChecksum = null;
+
 async function fetchFromApi() {
-  const url = apiUrlInput.value.trim().replace(/\/$/, "");
+  const url = getActiveApiUrl();
   if (!url) {
     setDemoMode();
     return;
@@ -461,28 +473,35 @@ async function fetchFromApi() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    envBadge.className = "badge badge-aws";
-    envBadge.textContent = "AWS CONNECTED";
-    activeEndpointDisplay.textContent = url;
-    connectionMsg.textContent = "Connected to AWS API Gateway. Polling DynamoDB records in real time.";
+    const isLocal = url.includes("localhost") || url.includes("127.0.0.1") || url.includes("3000");
+    envBadge.className = isLocal ? "badge badge-local" : "badge badge-aws";
+    envBadge.innerHTML = isLocal ? '<span class="pulse-dot"></span> WOKWI / ESP32 LIVE' : '<span class="pulse-dot"></span> AWS CONNECTED';
+    activeEndpointDisplay.textContent = `${url}/telemetry`;
+    connectionMsg.textContent = isLocal
+      ? "Live bridge active! Receiving real-time sensor updates from Wokwi virtual ESP32."
+      : "Connected to AWS API Gateway. Polling DynamoDB records in real time.";
     connectionMsg.className = "status-msg success";
 
     if (data.latest) {
-      const timeStr = data.latest.recordedAt 
-        ? new Date(data.latest.recordedAt).toLocaleTimeString() 
-        : new Date().toLocaleTimeString();
+      const checksum = `${data.latest.temperatureC}_${data.latest.humidityPct}_${data.latest.gasPpm}_${data.latest.updatedAt || data.latest.recordedAt}`;
+      if (checksum !== lastTelemetryChecksum) {
+        lastTelemetryChecksum = checksum;
+        const timeStr = data.latest.recordedAt 
+          ? new Date(data.latest.recordedAt).toLocaleTimeString() 
+          : new Date().toLocaleTimeString();
 
-      pushTelemetry({
-        time: timeStr,
-        temp: data.latest.temperatureC,
-        hum: data.latest.humidityPct,
-        hi: data.latest.heatIndexC,
-        gas: data.latest.gasPpm || 180,
-        airQuality: data.latest.airQuality || getAirQualityLabel(data.latest.gasPpm || 180),
-        status: data.latest.status,
-        device: data.latest.deviceId,
-        loc: data.latest.location
-      });
+        pushTelemetry({
+          time: timeStr,
+          temp: Number(data.latest.temperatureC),
+          hum: Number(data.latest.humidityPct),
+          hi: data.latest.heatIndexC !== undefined ? Number(data.latest.heatIndexC) : calculateHeatIndex(data.latest.temperatureC, data.latest.humidityPct),
+          gas: data.latest.gasPpm !== undefined ? Number(data.latest.gasPpm) : 180,
+          airQuality: data.latest.airQuality || getAirQualityLabel(data.latest.gasPpm || 180),
+          status: data.latest.status || "NORMAL",
+          device: data.latest.deviceId || "enviro-esp32-01",
+          loc: data.latest.location || "Campus Greenhouse Lab"
+        });
+      }
     }
   } catch (err) {
     envBadge.className = "badge badge-demo";
@@ -506,12 +525,20 @@ apiForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const url = apiUrlInput.value.trim();
   const key = apiKeyInput.value.trim();
-  localStorage.setItem("envirosense-api-url", url);
-  localStorage.setItem("envirosense-api-key", key);
+  if (url) {
+    localStorage.setItem("envirosense-api-url", url);
+  } else {
+    localStorage.removeItem("envirosense-api-url");
+  }
+  if (key) {
+    localStorage.setItem("envirosense-api-key", key);
+  } else {
+    localStorage.removeItem("envirosense-api-key");
+  }
 
   if (pollInterval) clearInterval(pollInterval);
   fetchFromApi();
-  pollInterval = setInterval(fetchFromApi, 6000);
+  pollInterval = setInterval(fetchFromApi, 1000);
 });
 
 document.querySelector("#btn-reset-demo").addEventListener("click", () => {
@@ -519,6 +546,7 @@ document.querySelector("#btn-reset-demo").addEventListener("click", () => {
   apiKeyInput.value = "";
   localStorage.removeItem("envirosense-api-url");
   localStorage.removeItem("envirosense-api-key");
+  if (pollInterval) clearInterval(pollInterval);
   setDemoMode();
 });
 
@@ -528,7 +556,7 @@ apiKeyInput.value = localStorage.getItem("envirosense-api-key") || "";
 
 renderDashboard(telemetryHistory[telemetryHistory.length - 1]);
 
-if (apiUrlInput.value) {
-  fetchFromApi();
-  pollInterval = setInterval(fetchFromApi, 6000);
-}
+// Automatically start active polling so Wokwi ESP32 updates immediately
+fetchFromApi();
+if (pollInterval) clearInterval(pollInterval);
+pollInterval = setInterval(fetchFromApi, 1000); // 1-second active polling cadence

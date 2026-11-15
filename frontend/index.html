@@ -58,15 +58,15 @@
 
         <form id="api-form" class="api-form">
           <div class="input-group">
-            <label for="api-url">API Gateway URL</label>
-            <input type="url" id="api-url" placeholder="https://{id}.execute-api.us-east-1.amazonaws.com" spellcheck="false">
+            <label for="api-url">API Endpoint URL</label>
+            <input type="url" id="api-url" placeholder="Default: Local Wokwi Bridge (http://localhost:3000) or AWS API Gateway" spellcheck="false">
           </div>
           <div class="input-group input-key">
             <label for="api-key">API Key (Optional)</label>
             <input type="password" id="api-key" placeholder="x-api-key" spellcheck="false">
           </div>
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary" id="btn-connect">Connect to AWS</button>
+            <button type="submit" class="btn btn-primary" id="btn-connect">Connect API</button>
             <button type="button" class="btn btn-secondary" id="btn-reset-demo">Reset to Demo</button>
           </div>
         </form>

@@ -63,7 +63,11 @@
 
 const char* DEVICE_ID = "enviro-esp32-01";
 const char* LOCATION  = "Campus Greenhouse Lab";
-const unsigned long REPORT_INTERVAL_MS = 5000;
+const unsigned long REPORT_INTERVAL_MS = 2000;
+
+float prevTemp = -999.0f;
+float prevHum = -999.0f;
+float prevGas = -999.0f;
 
 DHT dht(DHTPIN, DHTTYPE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -103,30 +107,43 @@ void loop() {
   }
 
   unsigned long currentMillis = millis();
-  if (currentMillis - lastReportTime >= REPORT_INTERVAL_MS) {
-    lastReportTime = currentMillis;
+  bool timeToSend = (currentMillis - lastReportTime >= REPORT_INTERVAL_MS);
+
+  static unsigned long lastSampleTime = 0;
+  if (currentMillis - lastSampleTime >= 400) {
+    lastSampleTime = currentMillis;
 
     float temperature = dht.readTemperature();
     float humidity    = dht.readHumidity();
 
     if (isnan(temperature) || isnan(humidity)) {
-      Serial.println(F("[ERROR] Failed to read from DHT22 sensor!"));
       updateOLEDError("DHT22 Read Fault");
       return;
     }
 
-    float heatIndex = dht.computeHeatIndex(temperature, humidity, false);
-
     int rawGasAdc = analogRead(MQ135_ANALOG_PIN);
     float gasPpm = readGasPpm(rawGasAdc);
-    const char* airQuality = evaluateAirQuality(gasPpm);
-    const char* overallStatus = evaluateOverallStatus(temperature, humidity, heatIndex, gasPpm);
 
-    Serial.printf("[TELEMETRY] Temp: %.1f C | Hum: %.1f %% | HeatIdx: %.1f C | Gas: %.0f PPM [%s] -> %s\n",
-                  temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+    bool changed = (fabs(temperature - prevTemp) >= 0.2f) ||
+                   (fabs(humidity - prevHum) >= 0.5f) ||
+                   (fabs(gasPpm - prevGas) >= 15.0f);
 
-    updateOLED(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
-    sendTelemetry(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+    if (changed || timeToSend) {
+      lastReportTime = currentMillis;
+      prevTemp = temperature;
+      prevHum = humidity;
+      prevGas = gasPpm;
+
+      float heatIndex = dht.computeHeatIndex(temperature, humidity, false);
+      const char* airQuality = evaluateAirQuality(gasPpm);
+      const char* overallStatus = evaluateOverallStatus(temperature, humidity, heatIndex, gasPpm);
+
+      Serial.printf("[TELEMETRY] Temp: %.1f C | Hum: %.1f %% | HeatIdx: %.1f C | Gas: %.0f PPM [%s] -> %s\n",
+                    temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+
+      updateOLED(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+      sendTelemetry(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+    }
   }
 }
 

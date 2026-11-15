@@ -56,7 +56,11 @@
 // Device Metadata & Reporting Timing
 const char* DEVICE_ID = "enviro-esp32-01";
 const char* LOCATION  = "Campus Greenhouse Lab";
-const unsigned long REPORT_INTERVAL_MS = 5000; // 5-second telemetry cadence
+const unsigned long REPORT_INTERVAL_MS = 2000; // 2-second heartbeat cadence
+
+float prevTemp = -999.0f;
+float prevHum = -999.0f;
+float prevGas = -999.0f;
 
 // ================= PERIPHERAL INSTANTIATION =================
 DHT dht(DHTPIN, DHTTYPE);
@@ -118,8 +122,12 @@ void loop() {
   }
 
   unsigned long currentMillis = millis();
-  if (currentMillis - lastReportTime >= REPORT_INTERVAL_MS) {
-    lastReportTime = currentMillis;
+  bool timeToSend = (currentMillis - lastReportTime >= REPORT_INTERVAL_MS);
+
+  // Fast 400ms sampling for instantaneous response to slider adjustments
+  static unsigned long lastSampleTime = 0;
+  if (currentMillis - lastSampleTime >= 400) {
+    lastSampleTime = currentMillis;
 
     // 1. Read DHT22 Temperature & Humidity
     float temperature = dht.readTemperature(); // Celsius
@@ -131,26 +139,36 @@ void loop() {
       return;
     }
 
-    // Compute Steadman Heat Index in Celsius
-    float heatIndex = dht.computeHeatIndex(temperature, humidity, false);
-
     // 2. Read MQ-135 Gas & Air Quality Sensor
-    int rawGasAdc = analogRead(MQ135_ANALOG_PIN); // 0 to 4095 on ESP32 12-bit ADC
+    int rawGasAdc = analogRead(MQ135_ANALOG_PIN);
     float gasPpm = readGasPpm(rawGasAdc);
-    const char* airQuality = evaluateAirQuality(gasPpm);
 
-    // 3. Evaluate Comprehensive Facility Climate Status
-    const char* overallStatus = evaluateOverallStatus(temperature, humidity, heatIndex, gasPpm);
+    // Detect if user interacted with slider in Wokwi
+    bool valueChanged = (fabs(temperature - prevTemp) >= 0.2f) ||
+                        (fabs(humidity - prevHum) >= 0.5f) ||
+                        (fabs(gasPpm - prevGas) >= 15.0f);
 
-    // 4. Output Serial Telemetry
-    Serial.printf("[TELEMETRY] Temp: %.1f C | Hum: %.1f %% | HeatIdx: %.1f C | Gas: %.0f PPM (ADC: %d) [%s] -> Status: %s\n",
-                  temperature, humidity, heatIndex, gasPpm, rawGasAdc, airQuality, overallStatus);
+    if (valueChanged || timeToSend) {
+      lastReportTime = currentMillis;
+      prevTemp = temperature;
+      prevHum = humidity;
+      prevGas = gasPpm;
 
-    // 5. Update OLED Screen
-    updateOLED(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+      // Compute Steadman Heat Index in Celsius
+      float heatIndex = dht.computeHeatIndex(temperature, humidity, false);
+      const char* airQuality = evaluateAirQuality(gasPpm);
+      const char* overallStatus = evaluateOverallStatus(temperature, humidity, heatIndex, gasPpm);
 
-    // 6. Transmit Telemetry Payload to Bridge / AWS
-    sendTelemetry(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+      // Output Serial Telemetry
+      Serial.printf("[TELEMETRY] Temp: %.1f C | Hum: %.1f %% | HeatIdx: %.1f C | Gas: %.0f PPM [%s] -> Status: %s\n",
+                    temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+
+      // Update OLED Screen
+      updateOLED(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+
+      // Transmit Telemetry Payload to Bridge / AWS
+      sendTelemetry(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+    }
   }
 }
 
