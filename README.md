@@ -111,24 +111,26 @@ cloud computing product 2/
 ├── firmware/
 │   ├── src/main.cpp           # PlatformIO C++ firmware with dual Wokwi & hardware WiFi modes
 │   ├── esp32_dht22_mq135_oled.ino # Standalone Arduino IDE firmware sketch
-│   ├── esp32_dht11_oled.ino   # Legacy DHT11 firmware sketch
 │   └── wiring_schematic.md    # Circuit wiring schematic, hardware pinouts, and simulation guide
 ├── simulator/
 │   └── simulator.py           # Python edge sensor simulator with --mode normal|heatwave|freeze|gasleak
 ├── tests/
-│   └── test_lambda.py         # Automated unit tests for Lambda contracts, validation & gas alerts
+│   └── test_lambda.py         # Automated unit tests for Lambda contracts, validation & gas alerts (8/8 PASS)
 ├── docs/
 │   ├── PRODUCT_REPORT.docx    # Formal submission report with embedded Figures 1 to 6
 │   ├── PRODUCT_START_SHEET.docx # Official SR University course start sheet
-│   └── screenshots/           # High-resolution architecture, schematic, and dashboard graphics
+│   └── screenshots/           # High-resolution architecture, schematic, and dashboard graphics (Figures 1-6)
 ├── diagram.json               # Wokwi virtual circuit (ESP32 + DHT22 + MQ-135 + SSD1306 OLED)
 ├── wokwi.toml                 # Wokwi simulator configuration pointing to compiled .bin / .elf
 ├── platformio.ini             # PlatformIO build configuration for espressif32
-├── server.py                  # Local Python bridge server (frontend + /telemetry endpoint)
+├── server.py                  # Local Python bridge server (frontend + /telemetry endpoint + AWS cloud relay)
 ├── template.yaml              # AWS SAM infrastructure specification
 ├── samconfig.toml             # Preconfigured deployment settings (Learner Lab us-east-1)
 ├── cloudformation.yaml        # Pure CloudFormation stack with pre-configured LabRole
 ├── deploy.ps1                 # One-click PowerShell deployment & S3 sync script
+├── generate_rich_assets.py    # Matplotlib generator for all 6 ultra-high-resolution figures
+├── generate_presentation.py   # Python-pptx builder for 16-slide master presentation
+├── generate_docs.py           # Python-docx builder for Word report & start sheet
 ├── EnviroSense_Master_Presentation.pptx # 16-slide master presentation with embedded diagrams
 ├── README.md                  # Comprehensive project documentation (this file)
 └── REPORT.md                  # Academic submission report formatted to course guidelines

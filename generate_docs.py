@@ -30,7 +30,7 @@ def create_start_sheet(output_path):
         section.left_margin = Inches(0.9)
         section.right_margin = Inches(0.9)
 
-    # Title
+    # Header
     p_uni = doc.add_paragraph()
     r_uni = p_uni.add_run("Cloud Computing (25CAI102PC205) · SR University")
     r_uni.font.name = "Calibri"
@@ -46,7 +46,7 @@ def create_start_sheet(output_path):
     r_title.font.color.rgb = RGBColor(15, 23, 42)
 
     p_meta = doc.add_paragraph()
-    r_meta = p_meta.add_run("Product No.: 23    |    Title: EnviroSense — IoT Climate & Environmental Dashboard\nTeam Name: EnviroSense    |    Batch: 59    |    Environment: AWS Learner Lab (us-east-1)")
+    r_meta = p_meta.add_run("Product No.: 23    |    Title: EnviroSense — IoT Climate & Air Quality Dashboard\nTeam Name: EnviroSense    |    Batch: 59    |    Environment: AWS Learner Lab (us-east-1)")
     r_meta.font.name = "Calibri"
     r_meta.font.size = Pt(10.5)
     r_meta.font.color.rgb = RGBColor(71, 85, 105)
@@ -77,8 +77,8 @@ def create_start_sheet(output_path):
         p.runs[0].font.color.rgb = RGBColor(255, 255, 255)
 
     rows_data1 = [
-        ("M. Yeshwanth", "2503A53005", "Develop ESP32 C++ firmware, hardware wiring schematic, and Python edge sensor simulator with atmospheric heat index algorithms; validate multi-mode telemetry."),
-        ("V. Laxmiprasad", "2503A53006", "Develop AWS Lambda validation & ingestion engine, configure DynamoDB 24-hr TTL, create S3 glassmorphic dashboard, and author automated unit test suites.")
+        ("M. Yeshwanth", "2503A53005", "Develop ESP32 C++ firmware (PlatformIO), wire DHT22 + MQ-135 + SSD1306 OLED, author Wokwi VS Code virtual circuit (diagram.json), configure CloudFormation stack in us-east-1, and manage Git repository."),
+        ("V. Laxmiprasad", "2503A53006", "Develop AWS Lambda validation engine (Python 3.12), implement Steadman Heat Index & gas hazard classification, configure DynamoDB 24-hr TTL lifecycle, design S3 glassmorphic dashboard (frontend/), and author 8-case automated unit test suite.")
     ]
 
     for row_idx, data in enumerate(rows_data1):
@@ -102,7 +102,7 @@ def create_start_sheet(output_path):
     p = doc.add_paragraph()
     r = p.add_run("1. Our product in one sentence")
     r.font.name = "Calibri"; r.font.size = Pt(11); r.font.bold = True; r.font.color.rgb = RGBColor(14, 116, 144)
-    p_body = doc.add_paragraph("Our product helps campus laboratories and greenhouse facility managers to monitor temperature, humidity, and heat index in real time using AWS serverless cloud services and edge telemetry nodes.")
+    p_body = doc.add_paragraph("Our product helps campus laboratories, agricultural greenhouse facilities, and server rooms monitor temperature, relative humidity, apparent heat index, and toxic gas/air quality (PPM) in real time using AWS serverless cloud infrastructure and dual physical/virtual ESP32 edge telemetry nodes.")
     p_body.runs[0].font.name = "Calibri"; p_body.runs[0].font.size = Pt(10.5)
 
     # Section 2
@@ -110,8 +110,8 @@ def create_start_sheet(output_path):
     r = p.add_run("2. Who will use it, and what problem does it solve?")
     r.font.name = "Calibri"; r.font.size = Pt(11); r.font.bold = True; r.font.color.rgb = RGBColor(14, 116, 144)
     p_body = doc.add_paragraph(
-        "Target Users: Campus lab instructors, agricultural greenhouse operators, facility managers, and IT room technicians.\n\n"
-        "Problem Solved: Traditional environmental monitoring is manual, unrecorded, and localized. When server rooms overheat or greenhouses experience severe humidity spikes, equipment degrades and biological samples spoil before operators notice. EnviroSense provides continuous automated sensing, computes the Steadman Heat Index ('Feels Like') server-side, flags critical thermal hazards in real time, and renders live vector charts on an S3-hosted dashboard accessible from any browser."
+        "Target Users: Agricultural greenhouse managers, university laboratory instructors, cleanroom supervisors, and IT data center technicians.\n\n"
+        "Problem Solved: Traditional environmental monitoring is manual, unrecorded, and localized. When facilities overheat, experience severe humidity spikes, or develop toxic solvent gas leaks, equipment degrades and biological specimens spoil before personnel notice. EnviroSense provides continuous automated multi-sensor sampling (DHT22 + MQ-135), computes the Steadman Heat Index ('Feels Like') server-side, flags critical thermal and chemical hazards in real time, and renders live vector trend curves on an S3-hosted glassmorphic dashboard accessible from any web browser."
     )
     p_body.runs[0].font.name = "Calibri"; p_body.runs[0].font.size = Pt(10.5)
 
@@ -121,12 +121,16 @@ def create_start_sheet(output_path):
     r.font.name = "Calibri"; r.font.size = Pt(11); r.font.bold = True; r.font.color.rgb = RGBColor(14, 116, 144)
     p_body = doc.add_paragraph(
         "Data Flow Architecture:\n"
-        "1. ESP32 Node / Python Edge Simulator  ──>  2. Amazon API Gateway (HTTP API v2)  ──>  3. AWS Lambda (Python 3.12 Validator & Heat Index Engine)  ──>  4. Amazon DynamoDB (24-hr TTL NoSQL Store)  ──>  5. Amazon S3 Static Dashboard (Animated gauges & SVG charts)\n\n"
-        "*Note: An interactive browser Demo Mode with one-click climate simulation presets is built directly into the dashboard for offline presentation without requiring physical hardware."
+        "1. ESP32 Node (DHT22 + MQ-135 + OLED) or Wokwi VS Code Virtual Simulator\n"
+        "   └──> 2. Amazon API Gateway (HTTP API v2, sub-15ms proxy routing)\n"
+        "        └──> 3. AWS Lambda (Python 3.12 Validator, Heat Index & Gas Alert Engine)\n"
+        "             └──> 4. Amazon DynamoDB (NoSQL Time-Series Store with 24-hr TTL)\n"
+        "                  └──> 5. Amazon S3 Static Dashboard (4 circular radial gauges, SVG charts, and Web Audio siren alerts)\n\n"
+        "*Note: A virtual Wokwi simulation in VS Code and an interactive offline Demo Engine with 5 scenario presets are built in for instant live presentation without requiring physical breadboards."
     )
     p_body.runs[0].font.name = "Calibri"; p_body.runs[0].font.size = Pt(10.5)
 
-    # Section 4: AWS Services
+    # Section 4
     p = doc.add_paragraph()
     r = p.add_run("4. AWS services we will use, and why")
     r.font.name = "Calibri"; r.font.size = Pt(11); r.font.bold = True; r.font.color.rgb = RGBColor(14, 116, 144)
@@ -145,11 +149,11 @@ def create_start_sheet(output_path):
         p.runs[0].font.name = "Calibri"; p.runs[0].font.bold = True; p.runs[0].font.color.rgb = RGBColor(255, 255, 255)
 
     services_data = [
-        ("AWS Lambda", "Executes serverless Python 3.12 functions to sanitize sensor payloads, calculate Steadman Heat Index, determine alert states (HEAT_ALERT, FREEZE_ALERT, HIGH_HUMIDITY), and store records."),
-        ("Amazon API Gateway (v2)", "Provides low-latency HTTP API routes (POST /telemetry, GET /telemetry, OPTIONS) with CORS preflight support for edge devices and browser dashboards."),
+        ("AWS Lambda", "Executes serverless Python 3.12 functions to sanitize sensor payloads, calculate Steadman Heat Index, evaluate multi-tier alert states (HEAT_ALERT, FREEZE_ALERT, GAS_ALERT), and format DynamoDB Decimal items."),
+        ("Amazon API Gateway (v2)", "Provides low-latency HTTP API routes (POST /telemetry, GET /telemetry, OPTIONS CORS) for edge devices, Wokwi virtual nodes, and browser dashboards."),
         ("Amazon DynamoDB", "Maintains time-series environmental records keyed by deviceId with Pay-Per-Request pricing and native 24-hr Time-to-Live (TTL) for zero-cost automated data pruning."),
-        ("Amazon S3 Static Website", "Hosts the responsive, zero-dependency dark-mode dashboard (index.html, styles.css, app.js) publicly without requiring expensive virtual servers."),
-        ("AWS SAM / CloudFormation", "Codifies reproducible Infrastructure-as-Code pre-configured with AWS Learner Lab LabRole permissions for zero-friction cloud deployment.")
+        ("Amazon S3 Static Website", "Hosts the zero-dependency dark-mode dashboard (index.html, styles.css, app.js) publicly without requiring expensive or persistent EC2 virtual servers."),
+        ("AWS CloudFormation", "Codifies reproducible Infrastructure-as-Code pre-configured with AWS Learner Lab LabRole permissions for zero-friction cloud deployment.")
     ]
 
     for row_idx, (srv, desc) in enumerate(services_data):
@@ -161,8 +165,7 @@ def create_start_sheet(output_path):
             set_cell_margins(cell, 100, 100, 150, 150)
             p = cell.paragraphs[0]
             p.runs[0].font.name = "Calibri"; p.runs[0].font.size = Pt(9.5)
-            if col_idx == 0:
-                p.runs[0].font.bold = True
+            if col_idx == 0: p.runs[0].font.bold = True
 
     table2.columns[0].width = Inches(2.2)
     table2.columns[1].width = Inches(4.5)
@@ -173,7 +176,7 @@ def create_start_sheet(output_path):
     p = doc.add_paragraph()
     r = p.add_run("5. The FIRST small thing we will build")
     r.font.name = "Calibri"; r.font.size = Pt(11); r.font.bold = True; r.font.color.rgb = RGBColor(14, 116, 144)
-    p_body = doc.add_paragraph("Transmit a simulated temperature/humidity JSON reading from the Python edge simulator to the Lambda API, calculate the heat index, and reflect it immediately as a green normal reading on the local dashboard.")
+    p_body = doc.add_paragraph("Transmit a simulated temperature/humidity/gas JSON reading from the virtual ESP32 node to the Lambda API, calculate the heat index, and reflect it immediately as a green normal reading on the local and S3 dashboard.")
     p_body.runs[0].font.name = "Calibri"; p_body.runs[0].font.size = Pt(10.5)
 
     p = doc.add_paragraph()
@@ -182,11 +185,11 @@ def create_start_sheet(output_path):
     p_body = doc.add_paragraph(
         "Status: Yes, our team is 100% ready.\n\n"
         "What we will show working:\n"
-        "• Demonstrate normal ambient monitoring with real-time animated SVG temperature and humidity trendlines.\n"
-        "• Trigger a simulated Heatwave surge (>40°C) and demonstrate immediate transition to pulsing red 'HEAT ALERT' state with calculated thermal hazard warnings.\n"
-        "• Trigger a Freezing drop (2°C) to demonstrate freeze warning classification.\n"
-        "• Showcase edge flexibility: demonstrate ESP32 physical C++ firmware with I2C OLED display alongside the cross-platform Python CLI simulator.\n"
-        "• Present automated unit tests passing 100% offline in 0.002 seconds."
+        "• Demonstrate normal ambient monitoring with real-time animated circular radial meters and native SVG waveforms.\n"
+        "• Slide the DHT22 temperature to 42°C in VS Code Wokwi and show immediate transition to pulsing red 'HEAT ALERT' with thermal danger warnings.\n"
+        "• Slide the MQ-135 gas sensor to 750 PPM to trigger acoustic Web Audio siren and 'GAS ALERT' hazard state.\n"
+        "• Demonstrate zero-hardware Wokwi simulation running in VS Code with direct HTTPS transmission to Amazon AWS.\n"
+        "• Present 8 automated unit tests passing 100% offline in 0.005 seconds."
     )
     p_body.runs[0].font.name = "Calibri"; p_body.runs[0].font.size = Pt(10.5)
 
@@ -207,7 +210,7 @@ def create_product_report(output_path, img_dir):
     r.font.name = "Calibri"; r.font.size = Pt(13); r.font.bold = True; r.font.color.rgb = RGBColor(14, 116, 144)
 
     p_title = doc.add_paragraph()
-    r = p_title.add_run("PRODUCT REPORT: EnviroSense — IoT Climate & Environmental Dashboard")
+    r = p_title.add_run("PRODUCT REPORT: EnviroSense — IoT Climate & Air Quality Dashboard")
     r.font.name = "Calibri"; r.font.size = Pt(18); r.font.bold = True; r.font.color.rgb = RGBColor(15, 23, 42)
 
     p_meta = doc.add_paragraph()
@@ -249,36 +252,36 @@ def create_product_report(output_path, img_dir):
     add_section_header("1. Product Overview")
     add_body(
         "1.1 Problem Solved:\n"
-        "In university greenhouse facilities, agricultural testing plots, and computer laboratory server rooms, environmental factors such as temperature, relative humidity, and thermal heat index directly affect equipment lifespan and specimen health. Traditional monitoring relies on isolated analogue thermometer checks or disconnected local sensors. These readings are ephemeral, unaggregated, and impossible to audit remotely. EnviroSense addresses this by streaming continuous sensor telemetry to an AWS serverless cloud architecture, offering centralized monitoring, automated hazard classification, and live web visualization."
+        "In university agricultural greenhouses, biological tissue incubation cleanrooms, and data-center computer laboratories, microclimate fluctuations and airborne chemical hazards pose critical risks to expensive hardware and biological research. Traditional monitoring relies on isolated analogue thermometer checks or disconnected local sensors. These readings are ephemeral, unaggregated, and impossible to audit remotely. EnviroSense resolves this by streaming continuous sensor telemetry (DHT22 temperature & humidity, MQ-135 air quality/gas) to an AWS serverless cloud architecture, offering centralized monitoring, automated hazard classification, and live web visualization."
     )
     add_body(
         "1.2 Objective:\n"
-        "To construct a production-ready, serverless cloud IoT platform that ingests environmental data via an HTTP API, performs server-side Steadman Heat Index computations, enforces automated TTL data lifecycle management in DynamoDB, and renders real-time telemetry on an S3 static web dashboard featuring a built-in offline Demo Mode."
+        "To construct a production-grade, serverless cloud IoT platform that ingests environmental data via an HTTP API, performs server-side Steadman Heat Index computations and gas toxicity evaluations, enforces automated TTL data lifecycle management in DynamoDB, and renders real-time telemetry on an S3 static web dashboard featuring a built-in offline Demo Mode."
     )
     add_body(
         "1.3 Target Users:\n"
         "• Campus and Laboratory Administrators: Overseeing hardware thermal safety in computer labs.\n"
         "• Greenhouse Operators: Tracking microclimates, moisture thresholds, and ambient heat curves.\n"
-        "• Healthcare & Cold Storage Technicians: Preventing sample degradation during cooling failure."
+        "• Chemical & Biological Lab Technicians: Monitoring volatile organic compounds (VOCs) and solvent fume leaks."
     )
 
     # Section 2
     add_section_header("2. Architecture and Technologies")
     add_body(
         "Architecture & Data Flow:\n"
-        "1. Edge Ingestion Layer: An ESP32 microcontroller (or Python simulator) samples temperature and humidity every 5-6 seconds and dispatches an HTTP POST JSON payload to API Gateway.\n"
+        "1. Edge Ingestion Layer: A DOIT ESP32 microcontroller (or Wokwi virtual simulator in VS Code) samples DHT22 and MQ-135 sensors every 2 seconds and dispatches an HTTP POST JSON payload to API Gateway.\n"
         "2. API Gateway (HTTP API v2): Ingests the payload, validates CORS preflights, and proxies requests to AWS Lambda with sub-15ms latency.\n"
-        "3. AWS Lambda Compute: Sanitizes inputs (-40°C to +85°C), calculates the Steadman Heat Index, evaluates alert thresholds, and appends a 24-hr TTL timestamp.\n"
+        "3. AWS Lambda Compute: Sanitizes inputs (-40°C to +85°C, 0-100% RH, 0-10000 PPM), calculates the Steadman Heat Index, evaluates alert thresholds (HEAT_ALERT, FREEZE_ALERT, GAS_ALERT), and appends a 24-hr TTL timestamp.\n"
         "4. Amazon DynamoDB: Persists the structured record into 'envirosense-telemetry' with Pay-Per-Request capacity and automatic TTL expiration.\n"
-        "5. Amazon S3 Static Dashboard: Queries GET /telemetry every 6 seconds to update digital readouts, animated radial meters, and native SVG trendlines."
+        "5. Amazon S3 Static Dashboard: Queries GET /telemetry every 1 second to update 4 circular radial meters, animated status banners, and native SVG waveforms."
     )
 
     add_figure("architecture-diagram.png", "Figure 1: EnviroSense 4-Tier Serverless Cloud Architecture Diagram")
-    add_figure("hardware-schematic.png", "Figure 2: ESP32 DevKit V1 Hardware Circuit & Sensor Pinout Schematic")
+    add_figure("hardware-schematic.png", "Figure 2: ESP32 DevKit V1 Hardware Circuit & Sensor Pinout Schematic (DHT22 + MQ-135 + OLED)")
     add_figure("thermal-heat-matrix.png", "Figure 3: NOAA / Steadman Apparent Heat Index Risk Calculation Spectrum")
 
     # Technologies Table
-    t_tech = doc.add_table(rows=6, cols=3)
+    t_tech = doc.add_table(rows=7, cols=3)
     t_tech.alignment = WD_TABLE_ALIGNMENT.CENTER
     tech_headers = ["AWS Service / Component", "Role in EnviroSense", "Configuration / Runtime"]
     for i, h in enumerate(tech_headers):
@@ -295,7 +298,8 @@ def create_product_report(output_path, img_dir):
         ("AWS Lambda", "Validates input, calculates Steadman Heat Index, formats DB item", "Python 3.12, 128 MB RAM, 10s timeout, LabRole execution"),
         ("Amazon DynamoDB", "NoSQL time-series data storage with automated lifecycle pruning", "Pay-Per-Request, HASH: deviceId, TTL: expiresAt (24h)"),
         ("Amazon S3 Static Website", "Hosts frontend assets publicly with zero maintenance servers", "WebsiteConfiguration (index.html), public-read bucket policy"),
-        ("ESP32 & Arduino C++", "Physical field telemetry node with local I2C OLED display", "Xtensa 240MHz, DHT11 on GPIO 4, SSD1306 OLED on I2C")
+        ("ESP32 Embedded C++", "Physical field telemetry node with local I2C OLED display", "Xtensa 240MHz, DHT22 on GPIO 4, MQ-135 on GPIO 34, SSD1306 on I2C"),
+        ("Wokwi VS Code Simulator", "Virtual hardware breadboard simulation in VS Code", "diagram.json + wokwi.toml, Wokwi-GUEST Wi-Fi, direct AWS link")
     ]
     for r_idx, row in enumerate(tech_data):
         bg = "F8FAFC" if r_idx % 2 == 0 else "FFFFFF"
@@ -316,25 +320,27 @@ def create_product_report(output_path, img_dir):
     add_section_header("3. Implementation and Cloud Deployment")
     add_body(
         "Deployment in AWS Learner Lab:\n"
-        "AWS Learner Lab imposes strict sandbox security policies, notably prohibiting students from creating or modifying IAM roles. To eliminate deployment failures, our CloudFormation (cloudformation.yaml) and SAM (template.yaml) templates are codified with a 'UseLabRole: true' parameter. This attaches the pre-configured 'arn:aws:iam::<account>:role/LabRole' to Lambda functions automatically.\n\n"
-        "Deployment URLs & Repository:\n"
+        "AWS Learner Lab imposes strict sandbox security policies, notably prohibiting students from creating or modifying IAM roles. To eliminate deployment failures, our CloudFormation (cloudformation.yaml) stack is codified with a 'UseLabRole: true' parameter. This attaches the pre-configured 'arn:aws:iam::683495019184:role/LabRole' to Lambda functions automatically.\n\n"
+        "Live Deployment Specifications:\n"
         "• GitHub Repository: https://github.com/yeshwanthkushi25-glitch/envirosense-iot-dashboard\n"
-        "• Live API Endpoint: https://<api-id>.execute-api.us-east-1.amazonaws.com/telemetry\n"
-        "• S3 Static Website URL: http://<bucket-name>.s3-website-us-east-1.amazonaws.com"
+        "• Live Ingestion API: https://etejnaemlc.execute-api.us-east-1.amazonaws.com/telemetry\n"
+        "• Live S3 Static Dashboard: http://envirosense-dashboard-683495019184.s3-website-us-east-1.amazonaws.com\n"
+        "• DynamoDB Table: envirosense-telemetry (On-Demand, TTL enabled)\n"
+        "• AWS Region: us-east-1 (Account: 683495019184)"
     )
 
     # Section 4
-    add_section_header("4. Testing and Results")
+    add_section_header("4. Testing and Verification Results")
     add_body(
         "Visual Demonstration Screenshots & Test Cases:\n"
         "The figures below illustrate the live operational states of the EnviroSense S3 dashboard and terminal verification suites."
     )
 
-    add_figure("dashboard-operational-green.png", "Figure 4: EnviroSense Dashboard — Operational Normal State (Glowing Green)")
-    add_figure("dashboard-failure-red.png", "Figure 5: EnviroSense Dashboard — Critical Thermal Hazard State (Pulsing Red Alert)")
-    add_figure("terminal-monitor-demo.png", "Figure 6: Automated Unit Test Suite (100% Pass) & Edge Simulator Execution")
+    add_figure("dashboard-operational-green.png", "Figure 4: EnviroSense Dashboard — Operational Normal State (Glowing Green, 4 Radial Meters)")
+    add_figure("dashboard-failure-red.png", "Figure 5: EnviroSense Dashboard — Critical Hazard State (Gas Leak & Heat Alert with Siren)")
+    add_figure("terminal-monitor-demo.png", "Figure 6: Automated Unit Test Suite (8/8 PASS in 0.005s) & Edge Simulator Execution")
 
-    t_tests = doc.add_table(rows=8, cols=4)
+    t_tests = doc.add_table(rows=9, cols=4)
     t_tests.alignment = WD_TABLE_ALIGNMENT.CENTER
     test_headers = ["Test ID", "Scenario Description", "Expected Outcome", "Status"]
     for i, h in enumerate(test_headers):
@@ -347,13 +353,14 @@ def create_product_report(output_path, img_dir):
         c.paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
 
     test_rows = [
-        ("TC-01", "Standard Telemetry POST (24.5°C, 48% RH)", "HTTP 201; Heat Index calculated; status NORMAL", "PASS"),
+        ("TC-01", "Standard Telemetry POST (24.5°C, 48% RH, 180 PPM)", "HTTP 201; Heat Index calculated; status NORMAL", "PASS"),
         ("TC-02", "Heatwave Condition (42.0°C, 85% RH)", "HTTP 201; Status classified as HEAT_ALERT", "PASS"),
         ("TC-03", "Cold Wave Condition (2.0°C, 30% RH)", "HTTP 201; Status classified as FREEZE_ALERT", "PASS"),
-        ("TC-04", "Out-of-Bounds Sensor Temperature (-95°C)", "HTTP 400 Bad Request; DynamoDB put rejected", "PASS"),
-        ("TC-05", "Missing Required Humidity Field", "HTTP 400 Bad Request; Descriptive error returned", "PASS"),
-        ("TC-06", "Telemetry Retrieval via GET /telemetry", "HTTP 200 OK; Returns array sorted by timestamp", "PASS"),
-        ("TC-07", "HTTP CORS Preflight (OPTIONS)", "HTTP 204 No Content; Wildcard origin allowed (*)", "PASS")
+        ("TC-04", "Toxic Gas Leak Condition (750 PPM Gas)", "HTTP 201; Status classified as GAS_ALERT hazard", "PASS"),
+        ("TC-05", "Out-of-Bounds Sensor Temperature (-95°C)", "HTTP 400 Bad Request; DynamoDB put rejected", "PASS"),
+        ("TC-06", "Missing Required Humidity Field", "HTTP 400 Bad Request; Descriptive error returned", "PASS"),
+        ("TC-07", "Telemetry Retrieval via GET /telemetry", "HTTP 200 OK; Returns array sorted by timestamp", "PASS"),
+        ("TC-08", "HTTP CORS Preflight (OPTIONS)", "HTTP 204 No Content; Wildcard origin allowed (*)", "PASS")
     ]
     for r_idx, row in enumerate(test_rows):
         bg = "F8FAFC" if r_idx % 2 == 0 else "FFFFFF"
@@ -375,20 +382,20 @@ def create_product_report(output_path, img_dir):
     add_section_header("5. Challenges and Conclusion")
     add_body(
         "Key Engineering Challenges & Solutions:\n"
-        "1. Physical Hardware Independence: Lab examinations frequently occur in lecture halls without Wi-Fi breadboards. We solved this by developing an interactive in-browser Demo Engine with one-click weather presets and a Python CLI simulator, guaranteeing full demonstration capability on any laptop.\n"
+        "1. Physical Hardware Independence: Lab examinations frequently occur in lecture halls without Wi-Fi breadboards. We solved this by developing an interactive in-browser Demo Engine with one-click weather presets and a Wokwi VS Code virtual hardware simulator, guaranteeing full demonstration capability on any laptop.\n"
         "2. Learner Lab IAM Limitations: CloudFormation stacks failed when requesting custom IAM roles. We introduced the 'UseLabRole: true' parameter to attach the pre-existing LabRole automatically.\n"
         "3. High-Frequency Telemetry Accumulation: Continuous sensor streaming quickly amasses tens of thousands of items. We enabled DynamoDB Time-To-Live (TTL) on 'expiresAt', which purges items after 24 hours at zero compute cost.\n"
-        "4. Client-Side Charting without CDN: Most online charting libraries require heavy external CDN script tags that fail in air-gapped university labs. We engineered custom responsive SVG sparklines built into vanilla JavaScript.\n\n"
+        "4. Client-Side Charting without CDN: Most online charting libraries require heavy external CDN script tags that fail in air-gapped university labs. We engineered custom responsive SVG sparklines and radial meters built into vanilla JavaScript.\n\n"
         "Conclusion & Learning Outcomes:\n"
-        "The team successfully designed, tested, and documented a full-scale serverless IoT environmental monitoring platform. We mastered AWS Lambda, API Gateway v2, DynamoDB TTL, Infrastructure-as-Code automation, ESP32 embedded C++ programming, and responsive web visualization."
+        "The team successfully designed, tested, and documented a full-scale serverless IoT environmental monitoring platform. We mastered AWS Lambda, API Gateway v2, DynamoDB TTL, Infrastructure-as-Code automation, ESP32 embedded C++ programming, Wokwi virtual circuit simulation, and responsive web visualization."
     )
 
     # Section 6
     add_section_header("6. Team Contributions and References")
     add_body(
         "Team Responsibilities:\n"
-        "• M. Yeshwanth (2503A53005): Programmed ESP32 C++ firmware (esp32_dht11_oled.ino); drafted circuit pinout schematic; created the cross-platform Python edge simulator (simulator.py); executed multi-mode telemetry tests; configured Git repository.\n"
-        "• V. Laxmiprasad (2503A53006): Built the AWS Lambda backend and Steadman Heat Index engine (backend/app.py); codified SAM and CloudFormation templates; implemented S3 glassmorphic dashboard (frontend/); authored the 7-case unit test suite.\n\n"
+        "• M. Yeshwanth (2503A53005): Programmed ESP32 C++ firmware (firmware/src/main.cpp); drafted circuit pinout schematic; configured Wokwi virtual simulator (diagram.json); deployed AWS CloudFormation stack; executed multi-mode telemetry tests; configured Git repository.\n"
+        "• V. Laxmiprasad (2503A53006): Built the AWS Lambda backend and Steadman Heat Index engine (backend/app.py); codified DynamoDB Decimal types and TTL pruning; implemented S3 glassmorphic dashboard (frontend/); authored the 8-case unit test suite.\n\n"
         "References:\n"
         "1. NOAA National Weather Service: The Heat Index Equation & Rothfusz Regression Analysis.\n"
         "2. AWS Lambda Developer Guide: Serverless Computing with Python 3.12, AWS Documentation.\n"
