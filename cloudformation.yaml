@@ -73,11 +73,37 @@ Resources:
     Properties:
       FunctionName: !Sub '${AWS::StackName}-handler'
       Runtime: python3.12
-      Handler: app.handler
+      Handler: index.handler
       Code:
         ZipFile: |
           import json, os, time, boto3
+          from decimal import Decimal
           table = boto3.resource('dynamodb').Table(os.environ.get('TABLE_NAME', 'envirosense-telemetry'))
+          def decimal_default(obj):
+              if isinstance(obj, Decimal):
+                  return float(obj)
+              raise TypeError
+          def compute_hi(t, rh):
+              tf = (t * 9.0 / 5.0) + 32.0
+              if tf < 80.0:
+                  hi_f = 0.5 * (tf + 61.0 + ((tf - 68.0) * 1.2) + (rh * 0.094))
+              else:
+                  hi_f = -42.379 + 2.04901523*tf + 10.14333127*rh - 0.22475541*tf*rh - 0.00683783*(tf**2) - 0.05481717*(rh**2) + 0.00122874*(tf**2)*rh + 0.00085282*tf*(rh**2) - 0.00000199*(tf**2)*(rh**2)
+              return round((hi_f - 32.0) * 5.0 / 9.0, 2)
+          def eval_status(t, rh, hi, gas):
+              if gas >= 600.0:
+                  return 'GAS_ALERT', f'Hazardous gas detected: {gas:.0f} PPM'
+              if t <= 5.0:
+                  return 'FREEZE_ALERT', f'Low temp: {t}\u00b0C'
+              if t >= 40.0 or hi >= 40.0:
+                  return 'HEAT_ALERT', f'Heat danger: {hi}\u00b0C'
+              if t >= 35.0:
+                  return 'WARNING', f'Elevated temp: {t}\u00b0C'
+              if rh >= 80.0:
+                  return 'HIGH_HUMIDITY', f'High humidity: {rh}%'
+              if gas >= 350.0:
+                  return 'WARNING', f'Elevated VOC/smoke: {gas:.0f} PPM'
+              return 'NORMAL', 'Climate parameters within optimal ranges'
           def handler(event, context):
               method = (event.get('requestContext', {}).get('http', {}).get('method') or event.get('httpMethod', '')).upper()
               headers = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'}
@@ -88,18 +114,35 @@ Resources:
                       body = json.loads(event.get('body') or '{}')
                       temp = round(float(body.get('temperatureC', 24.5)), 2)
                       hum = round(float(body.get('humidityPct', 50.0)), 2)
-                      hi = round(float(body.get('heatIndexC', temp)), 2)
-                      status = 'HEAT_ALERT' if (temp >= 40 or hi >= 40) else ('FREEZE_ALERT' if temp <= 5 else ('HIGH_HUMIDITY' if hum >= 85 else 'NORMAL'))
+                      hi = round(float(body.get('heatIndexC', compute_hi(temp, hum))), 2)
+                      gas = round(float(body.get('gasPpm', 150.0)), 1)
+                      gas_raw = int(body.get('gasRaw', int(gas * 4.095)))
+                      aq = 'HAZARDOUS' if gas >= 600 else ('MODERATE' if gas >= 350 else ('GOOD' if gas >= 200 else 'EXCELLENT'))
+                      status, status_detail = eval_status(temp, hum, hi, gas)
                       now = int(time.time())
-                      item = {'deviceId': str(body.get('deviceId', 'enviro-node-01')), 'recordedAt': body.get('recordedAt', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())), 'temperatureC': temp, 'humidityPct': hum, 'heatIndexC': hi, 'status': status, 'location': str(body.get('location', 'Campus Greenhouse Lab')), 'updatedAt': now, 'expiresAt': now + 86400}
+                      item = {
+                          'deviceId': str(body.get('deviceId', 'enviro-node-01')),
+                          'recordedAt': body.get('recordedAt', time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())),
+                          'location': str(body.get('location', 'Campus Greenhouse Lab')),
+                          'temperatureC': Decimal(str(temp)),
+                          'humidityPct': Decimal(str(hum)),
+                          'heatIndexC': Decimal(str(hi)),
+                          'gasPpm': Decimal(str(gas)),
+                          'gasRaw': gas_raw,
+                          'airQuality': str(body.get('airQuality', aq)),
+                          'status': status,
+                          'statusDetail': status_detail,
+                          'updatedAt': now,
+                          'expiresAt': now + int(os.environ.get('TELEMETRY_TTL_SECONDS', '86400'))
+                      }
                       table.put_item(Item=item)
-                      return {'statusCode': 201, 'headers': headers, 'body': json.dumps({'message': 'Telemetry recorded', 'telemetry': item})}
+                      return {'statusCode': 201, 'headers': headers, 'body': json.dumps({'message': 'Telemetry recorded', 'telemetry': item}, default=decimal_default)}
                   except Exception as e:
                       return {'statusCode': 400, 'headers': headers, 'body': json.dumps({'error': str(e)})}
               if method == 'GET':
                   res = table.scan()
                   items = sorted(res.get('Items', []), key=lambda x: x.get('updatedAt', 0), reverse=True)
-                  return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'count': len(items), 'latest': items[0] if items else None, 'telemetry': items[:30]})}
+                  return {'statusCode': 200, 'headers': headers, 'body': json.dumps({'count': len(items), 'latest': items[0] if items else None, 'telemetry': items[:30]}, default=decimal_default)}
               return {'statusCode': 405, 'headers': headers, 'body': json.dumps({'error': 'Method not allowed'})}
       MemorySize: 128
       Timeout: 10

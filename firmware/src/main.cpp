@@ -10,32 +10,32 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <DHT.h>
 #include <ArduinoJson.h>
 
-// ================= CONFIGURATION & MODE TOGGLE =================
-// 1 = Wokwi VS Code Simulator (Uses virtual Wokwi-GUEST WiFi & host.wokwi.internal bridge)
-// 0 = Physical Hardware / Live AWS Deployment
+// ================= CONFIGURATION & CLOUD ENDPOINTS =================
+// 1 = Wokwi VS Code Simulator (Uses virtual Wokwi-GUEST WiFi)
+// 0 = Physical Hardware (Uses custom WiFi credentials)
 #define USE_WOKWI_SIMULATION 1
 
 #if USE_WOKWI_SIMULATION
   const char* WIFI_SSID     = "Wokwi-GUEST";
   const char* WIFI_PASSWORD = "";
   const int   WIFI_CHANNEL  = 6; // Fast-track channel for Wokwi virtual router
-  // Points to local server running on your computer through Wokwi virtual DNS bridge
-  const char* API_URL       = "http://host.wokwi.internal:3000/telemetry";
-  const char* API_KEY       = "";
 #else
   const char* WIFI_SSID     = "YOUR_WIFI_SSID";
   const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
   const int   WIFI_CHANNEL  = 0;
-  // Replace with your deployed AWS API Gateway execute URL
-  const char* API_URL       = "https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/telemetry";
-  const char* API_KEY       = "";
 #endif
+
+// Live Deployed AWS API Gateway Endpoint
+const char* AWS_API_URL    = "https://etejnaemlc.execute-api.us-east-1.amazonaws.com/telemetry";
+const char* LOCAL_API_URL  = "http://host.wokwi.internal:3000/telemetry";
+const char* API_KEY        = "";
 
 // ================= HARDWARE PIN DEFINITIONS =================
 // DHT22 Digital Data Pin
@@ -284,13 +284,6 @@ void sendTelemetry(float temp, float hum, float hi, float gasPpm, const char* ai
     return;
   }
 
-  HTTPClient http;
-  http.begin(API_URL);
-  http.addHeader("Content-Type", "application/json");
-  if (strlen(API_KEY) > 0) {
-    http.addHeader("x-api-key", API_KEY);
-  }
-
   // Construct JSON Payload
   StaticJsonDocument<384> doc;
   doc["deviceId"]     = DEVICE_ID;
@@ -305,16 +298,47 @@ void sendTelemetry(float temp, float hum, float hi, float gasPpm, const char* ai
   String jsonPayload;
   serializeJson(doc, jsonPayload);
 
-  Serial.printf("[HTTP POST] Transmitting -> %s\n", API_URL);
-  Serial.printf("[PAYLOAD]   %s\n", jsonPayload.c_str());
+  Serial.println(F("\n--------------------------------------------------------"));
+  Serial.printf("[TELEMETRY] Temp: %.1fC | Hum: %.0f%% | Gas: %.0f PPM (%s) | Status: %s\n",
+                temp, hum, gasPpm, airQuality, overallStatus);
 
-  int httpCode = http.POST(jsonPayload);
-  if (httpCode > 0) {
-    String response = http.getString();
-    Serial.printf("[HTTP RES]  Code: %d -> %s\n", httpCode, response.c_str());
-  } else {
-    Serial.printf("[HTTP ERR]  Request failed: %s\n", http.errorToString(httpCode).c_str());
+  // 1. Direct Transmission to Amazon AWS API Gateway (HTTPS)
+  {
+    HTTPClient https;
+    WiFiClientSecure secureClient;
+    secureClient.setInsecure(); // Learner lab / TLS validation
+    secureClient.setTimeout(5); // 5 seconds
+
+    if (https.begin(secureClient, AWS_API_URL)) {
+      https.addHeader("Content-Type", "application/json");
+      if (strlen(API_KEY) > 0) {
+        https.addHeader("x-api-key", API_KEY);
+      }
+      https.setTimeout(5000);
+      Serial.printf("[AWS HTTPS] Sending -> %s\n", AWS_API_URL);
+      int code = https.POST(jsonPayload);
+      if (code > 0) {
+        String res = https.getString();
+        Serial.printf("[AWS RES]   HTTP %d -> %s\n", code, res.c_str());
+      } else {
+        Serial.printf("[AWS ERR]   Code: %d (%s)\n", code, https.errorToString(code).c_str());
+      }
+      https.end();
+    }
   }
 
-  http.end();
+  // 2. Also send to Local Bridge if running (HTTP host.wokwi.internal:3000)
+  {
+    HTTPClient http;
+    http.setTimeout(1200);
+    if (http.begin(LOCAL_API_URL)) {
+      http.addHeader("Content-Type", "application/json");
+      int code = http.POST(jsonPayload);
+      if (code > 0) {
+        Serial.printf("[LOCAL RES] HTTP %d\n", code);
+      }
+      http.end();
+    }
+  }
+  Serial.println(F("--------------------------------------------------------"));
 }

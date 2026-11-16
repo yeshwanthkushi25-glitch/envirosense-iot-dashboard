@@ -50,6 +50,21 @@ The system natively supports **Wokwi for VS Code** virtual simulation, allowing 
 
 ---
 
+## 🌐 Live Deployed AWS Cloud Infrastructure
+
+The complete serverless stack is deployed and operational in **AWS Learner Lab (`us-east-1`)**:
+
+| Component | AWS Resource | Live Endpoint / Value |
+| :--- | :--- | :--- |
+| **Frontend Dashboard** | Amazon S3 Static Website | [http://envirosense-dashboard-683495019184.s3-website-us-east-1.amazonaws.com](http://envirosense-dashboard-683495019184.s3-website-us-east-1.amazonaws.com) |
+| **Ingestion API** | Amazon API Gateway HTTP API (v2) | `https://etejnaemlc.execute-api.us-east-1.amazonaws.com/telemetry` |
+| **Serverless Compute** | AWS Lambda | `envirosense-handler` (Python 3.12, LabRole execution) |
+| **Database** | Amazon DynamoDB | `envirosense-telemetry` (TTL enabled, On-Demand) |
+| **Storage Bucket** | Amazon S3 | `s3://envirosense-dashboard-683495019184` |
+| **AWS Region** | US East (N. Virginia) | `us-east-1` (Account: `683495019184`) |
+
+---
+
 ## ⚡ Virtual ESP32 Simulation in VS Code (Wokwi)
 
 You can run the simulated ESP32 node and connect it to your project dashboard with zero physical hardware:

@@ -21,7 +21,40 @@ from typing import Any
 
 # Resolve paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+if os.path.isdir(os.path.join(BASE_DIR, "frontend")):
+    FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+elif os.path.isdir(os.path.join(BASE_DIR, "cloud computing product 2", "frontend")):
+    FRONTEND_DIR = os.path.join(BASE_DIR, "cloud computing product 2", "frontend")
+else:
+    FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
+
+# Live AWS API Gateway endpoint for cloud relay
+AWS_API_GATEWAY_URL = os.environ.get(
+    "AWS_API_GATEWAY_URL",
+    "https://etejnaemlc.execute-api.us-east-1.amazonaws.com/telemetry"
+)
+
+
+def relay_to_aws(item: dict[str, Any]):
+    """Asynchronously forward live ESP32 telemetry to AWS DynamoDB via API Gateway."""
+    def _worker():
+        try:
+            import urllib.request
+            payload = json.dumps(item).encode("utf-8")
+            req = urllib.request.Request(
+                AWS_API_GATEWAY_URL,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                if resp.status in (200, 201):
+                    print(f"  └─► [AWS DYNAMODB SYNC] Telemetry safely recorded in AWS Cloud ({resp.status})", flush=True)
+        except Exception as e:
+            # Silent fallback if offline
+            pass
+    import threading
+    threading.Thread(target=_worker, daemon=True).start()
 
 # In-memory telemetry buffer
 MAX_HISTORY = 40
@@ -221,6 +254,9 @@ class EnviroSenseBridgeHandler(SimpleHTTPRequestHandler):
             f" {item['humidityPct']}% | Gas: {item['gasPpm']} PPM"
             f" ({item['airQuality']}) -> Status: {item['status']}"
         )
+
+        # Asynchronously synchronize with AWS DynamoDB
+        relay_to_aws(item)
 
         self.send_response(201)
         self.send_header("Content-Type", "application/json")

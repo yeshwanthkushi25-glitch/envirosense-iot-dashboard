@@ -445,14 +445,15 @@ streamBtn.addEventListener("click", () => {
 });
 
 // Live AWS / Wokwi Local Bridge API Polling
+const AWS_API_DEFAULT = "https://etejnaemlc.execute-api.us-east-1.amazonaws.com";
+
 function getActiveApiUrl() {
   const manual = apiUrlInput.value.trim().replace(/\/$/, "");
   if (manual) return manual;
-  // If served over HTTP (e.g. localhost:3000), use current origin as default bridge
-  if (window.location.protocol.startsWith("http")) {
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
     return window.location.origin;
   }
-  return "";
+  return AWS_API_DEFAULT;
 }
 
 let lastTelemetryChecksum = null;
@@ -551,7 +552,7 @@ document.querySelector("#btn-reset-demo").addEventListener("click", () => {
 });
 
 // Initialization
-apiUrlInput.value = localStorage.getItem("envirosense-api-url") || "";
+apiUrlInput.value = localStorage.getItem("envirosense-api-url") || (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? window.location.origin : AWS_API_DEFAULT);
 apiKeyInput.value = localStorage.getItem("envirosense-api-key") || "";
 
 renderDashboard(telemetryHistory[telemetryHistory.length - 1]);
