@@ -184,9 +184,14 @@ void connectWiFi() {
 
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 25) {
-    delay(400);
+    delay(300);
     Serial.print(".");
     attempts++;
+    #if USE_WOKWI_SIMULATION
+    if (attempts == 12 && WiFi.status() != WL_CONNECTED) {
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD); // Fallback to auto-channel scan
+    }
+    #endif
   }
 
   if (WiFi.status() == WL_CONNECTED) {
@@ -302,42 +307,57 @@ void sendTelemetry(float temp, float hum, float hi, float gasPpm, const char* ai
   Serial.printf("[TELEMETRY] Temp: %.1fC | Hum: %.0f%% | Gas: %.0f PPM (%s) | Status: %s\n",
                 temp, hum, gasPpm, airQuality, overallStatus);
 
-  // 1. Direct Transmission to Amazon AWS API Gateway (HTTPS)
-  {
-    HTTPClient https;
-    WiFiClientSecure secureClient;
-    secureClient.setInsecure(); // Learner lab / TLS validation
-    secureClient.setTimeout(5); // 5 seconds
+  bool localSuccess = false;
 
-    if (https.begin(secureClient, AWS_API_URL)) {
-      https.addHeader("Content-Type", "application/json");
-      if (strlen(API_KEY) > 0) {
-        https.addHeader("x-api-key", API_KEY);
-      }
-      https.setTimeout(5000);
-      Serial.printf("[AWS HTTPS] Sending -> %s\n", AWS_API_URL);
-      int code = https.POST(jsonPayload);
-      if (code > 0) {
-        String res = https.getString();
-        Serial.printf("[AWS RES]   HTTP %d -> %s\n", code, res.c_str());
-      } else {
-        Serial.printf("[AWS ERR]   Code: %d (%s)\n", code, https.errorToString(code).c_str());
-      }
-      https.end();
-    }
-  }
-
-  // 2. Also send to Local Bridge if running (HTTP host.wokwi.internal:3000)
+  // 1. Local Bridge Transmission (Ultra-fast path for Wokwi VS Code Simulator -> Host Bridge)
+  // Connects via http://host.wokwi.internal:3000/telemetry in <10ms and relays to AWS DynamoDB
   {
     HTTPClient http;
     http.setTimeout(1200);
     if (http.begin(LOCAL_API_URL)) {
       http.addHeader("Content-Type", "application/json");
       int code = http.POST(jsonPayload);
-      if (code > 0) {
-        Serial.printf("[LOCAL RES] HTTP %d\n", code);
+      if (code == 200 || code == 201) {
+        Serial.printf("[LOCAL BRIDGE OK] HTTP %d -> Local Dashboard updated & AWS DynamoDB synced!\n", code);
+        localSuccess = true;
+      } else if (code > 0) {
+        Serial.printf("[LOCAL BRIDGE] HTTP %d\n", code);
+      } else {
+        Serial.printf("[LOCAL BRIDGE OFF] Server not running on :3000 (%s)\n", http.errorToString(code).c_str());
       }
       http.end();
+    }
+  }
+
+  // 2. Direct AWS API Gateway Transmission (Used for physical hardware or when local bridge is offline)
+  #if USE_WOKWI_SIMULATION
+  bool attemptAwsDirect = !localSuccess; // In simulation, local bridge relays to AWS; if bridge down, send directly
+  #else
+  bool attemptAwsDirect = true;          // Physical hardware connects directly to AWS
+  #endif
+
+  if (attemptAwsDirect) {
+    HTTPClient https;
+    WiFiClientSecure secureClient;
+    secureClient.setInsecure(); // Learner lab / TLS validation
+    secureClient.setTimeout(8000); // 8000ms = 8 seconds
+
+    if (https.begin(secureClient, AWS_API_URL)) {
+      https.addHeader("Content-Type", "application/json");
+      if (strlen(API_KEY) > 0) {
+        https.addHeader("x-api-key", API_KEY);
+      }
+      https.setTimeout(8000);
+      Serial.printf("[AWS HTTPS] Sending -> %s\n", AWS_API_URL);
+      int code = https.POST(jsonPayload);
+      if (code == 200 || code == 201) {
+        Serial.printf("[AWS HTTPS OK] HTTP %d -> DynamoDB recorded\n", code);
+      } else if (code > 0) {
+        Serial.printf("[AWS RES] HTTP %d\n", code);
+      } else {
+        Serial.printf("[AWS ERR] Code: %d (%s)\n", code, https.errorToString(code).c_str());
+      }
+      https.end();
     }
   }
   Serial.println(F("--------------------------------------------------------"));

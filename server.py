@@ -47,12 +47,13 @@ def relay_to_aws(item: dict[str, Any]):
                 headers={"Content-Type": "application/json"},
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=4) as resp:
+            with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status in (200, 201):
                     print(f"  └─► [AWS DYNAMODB SYNC] Telemetry safely recorded in AWS Cloud ({resp.status})", flush=True)
+                else:
+                    print(f"  └─► [AWS DYNAMODB WARN] HTTP {resp.status}", flush=True)
         except Exception as e:
-            # Silent fallback if offline
-            pass
+            print(f"  └─► [AWS SYNC NOTE] {e}", flush=True)
     import threading
     threading.Thread(target=_worker, daemon=True).start()
 

@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
 """EnviroSense Edge Sensor Simulator.
 
-Generates realistic environmental sensor telemetry and publishes to the AWS API Gateway.
-Supports multiple operational modes: normal, heatwave, freeze, and sinusoidal fluctuation.
+Generates realistic environmental & air quality telemetry and publishes to:
+- Amazon AWS API Gateway & DynamoDB Cloud
+- Local EnviroSense Bridge Server (localhost:3000)
+
+Supports operational modes: normal, heatwave, freeze, gasleak, and sinusoidal fluctuation.
 """
 
 import argparse
 import json
 import math
+import os
 import random
 import sys
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+
+# Live Cloud & Local Default Endpoints
+DEFAULT_AWS_API_URL = "https://etejnaemlc.execute-api.us-east-1.amazonaws.com/telemetry"
+DEFAULT_LOCAL_API_URL = "http://localhost:3000/telemetry"
 
 
 def compute_heat_index(temp_c: float, rh: float) -> float:
@@ -68,7 +76,32 @@ def generate_reading(mode: str, step: int) -> tuple[float, float, float]:
 def make_payload(args: argparse.Namespace, step: int) -> dict:
     temp_c, hum_pct, gas_ppm = generate_reading(args.mode, step)
     hi_c = compute_heat_index(temp_c, hum_pct)
-    air_quality = "HAZARDOUS" if gas_ppm >= 600.0 else ("MODERATE" if gas_ppm >= 350.0 else "GOOD")
+    gas_raw = int(gas_ppm * 4.095)
+
+    if gas_ppm >= 600.0:
+        air_quality = "HAZARDOUS"
+        status = "GAS_ALERT"
+        status_detail = f"Hazardous gas concentration: {gas_ppm:.0f} PPM."
+    elif temp_c <= 5.0:
+        air_quality = "GOOD"
+        status = "FREEZE_ALERT"
+        status_detail = f"Freezing temperature warning: {temp_c}°C."
+    elif temp_c >= 40.0 or hi_c >= 40.0:
+        air_quality = "MODERATE"
+        status = "HEAT_ALERT"
+        status_detail = f"Critical heat index danger: {hi_c}°C."
+    elif hum_pct >= 85.0:
+        air_quality = "GOOD"
+        status = "HIGH_HUMIDITY"
+        status_detail = f"High relative humidity: {hum_pct}%."
+    elif gas_ppm >= 350.0:
+        air_quality = "MODERATE"
+        status = "WARNING"
+        status_detail = f"Elevated VOC / gas concentration: {gas_ppm:.0f} PPM."
+    else:
+        air_quality = "EXCELLENT" if gas_ppm < 200.0 else "GOOD"
+        status = "NORMAL"
+        status_detail = "Climate parameters are within optimal ranges."
 
     return {
         "deviceId": args.device_id,
@@ -77,21 +110,62 @@ def make_payload(args: argparse.Namespace, step: int) -> dict:
         "humidityPct": hum_pct,
         "heatIndexC": hi_c,
         "gasPpm": gas_ppm,
+        "gasRaw": gas_raw,
         "airQuality": air_quality,
+        "status": status,
+        "statusDetail": status_detail,
         "recordedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     }
 
 
-def publish(api_url: str, payload: dict, api_key: str | None = None) -> dict:
+def normalize_endpoint(url: str) -> str:
+    """Ensure URL cleanly ends with /telemetry without duplicate trailing paths."""
+    clean = url.strip().rstrip("/")
+    if not clean.endswith("/telemetry"):
+        clean = f"{clean}/telemetry"
+    return clean
+
+
+def is_local_bridge_running(port: int = 3000) -> bool:
+    """Quick socket check to detect if local bridge is active."""
+    import socket
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.3)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+    except Exception:
+        return False
+
+
+def resolve_api_urls(args: argparse.Namespace) -> list[str]:
+    """Resolve one or more active ingestion endpoints based on CLI flags or auto-detection."""
+    if args.api_url:
+        return [normalize_endpoint(args.api_url)]
+
+    if args.target == "both":
+        return [DEFAULT_LOCAL_API_URL, DEFAULT_AWS_API_URL]
+
+    if args.target == "local":
+        return [DEFAULT_LOCAL_API_URL]
+
+    if args.target == "aws":
+        return [DEFAULT_AWS_API_URL]
+
+    # Auto-detection: prefer local bridge if running (which automatically relays to AWS)
+    if is_local_bridge_running(3000):
+        return [DEFAULT_LOCAL_API_URL]
+    return [DEFAULT_AWS_API_URL]
+
+
+def publish(endpoint: str, payload: dict, api_key: str | None = None) -> dict:
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["x-api-key"] = api_key
 
-    endpoint = f"{api_url.rstrip('/')}/telemetry"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(endpoint, data=data, headers=headers, method="POST")
 
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    with urllib.request.urlopen(req, timeout=8) as resp:
         if resp.status >= 300:
             raise RuntimeError(f"API returned HTTP {resp.status}")
         raw = resp.read().decode("utf-8")
@@ -100,45 +174,64 @@ def publish(api_url: str, payload: dict, api_key: str | None = None) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="EnviroSense IoT Sensor Telemetry Simulator")
-    parser.add_argument("--api-url", help="API Gateway URL (required unless --dry-run is set)")
-    parser.add_argument("--api-key", help="API Gateway x-api-key header")
-    parser.add_argument("--device-id", default="enviro-node-01", help="Device identifier")
+    parser.add_argument(
+        "--api-url",
+        help="Target endpoint (defaults to live AWS API Gateway or local bridge)",
+    )
+    parser.add_argument(
+        "--target",
+        choices=["auto", "aws", "local", "both"],
+        default="auto",
+        help="Target destination: 'aws' (Live AWS API Gateway), 'local' (Local Bridge), 'both' (Dual publish), or 'auto' (detects active server)",
+    )
+    parser.add_argument("--api-key", help="API Gateway x-api-key header (optional)")
+    parser.add_argument("--device-id", default="enviro-sim-01", help="Device identifier")
     parser.add_argument("--location", default="Campus Greenhouse Lab", help="Physical location label")
-    parser.add_argument("--interval", type=float, default=5.0, help="Seconds between telemetry posts")
+    parser.add_argument("--interval", type=float, default=3.0, help="Seconds between telemetry posts (default: 3.0s)")
     parser.add_argument(
         "--mode",
         choices=["normal", "heatwave", "freeze", "fluctuate", "gasleak"],
         default="normal",
-        help="Telemetry simulation pattern",
+        help="Telemetry simulation pattern (default: normal)",
     )
     parser.add_argument("--once", action="store_true", help="Send a single reading and terminate")
     parser.add_argument("--dry-run", action="store_true", help="Format and print JSON payload without sending")
     args = parser.parse_args()
 
-    if not args.api_url and not args.dry_run:
-        parser.error("--api-url is required unless --dry-run is specified")
+    active_urls = resolve_api_urls(args)
 
-    print("=======================================================", flush=True)
+    print("=======================================================================", flush=True)
     print("  EnviroSense — IoT Edge Sensor Node Simulator", flush=True)
     print(f"  Device: {args.device_id} | Location: {args.location}", flush=True)
-    print(f"  Mode: {args.mode.upper()} | Interval: {args.interval}s", flush=True)
-    print("=======================================================\n", flush=True)
+    print(f"  Mode:   {args.mode.upper()} | Interval: {args.interval}s", flush=True)
+    if args.dry_run:
+        print("  Target: DRY-RUN (Local JSON preview only, no network calls)", flush=True)
+    else:
+        print(f"  Target: {', '.join(active_urls)}", flush=True)
+    print("=======================================================================\n", flush=True)
 
     step = 0
     try:
         while True:
             payload = make_payload(args, step)
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Telemetry payload:")
-            print(f"  Temperature: {payload['temperatureC']} °C | Humidity: {payload['humidityPct']} % | Heat Index: {payload['heatIndexC']} °C")
+            now_str = datetime.now().strftime("%H:%M:%S")
+            print(f"[{now_str}] Sensor Reading:")
+            print(
+                f"  Temp: {payload['temperatureC']} °C | Hum: {payload['humidityPct']} % | "
+                f"Heat Index: {payload['heatIndexC']} °C | Gas: {payload['gasPpm']} PPM ({payload['airQuality']}) -> Status: {payload['status']}"
+            )
 
             if args.dry_run:
-                print(f"  [DRY-RUN JSON] {json.dumps(payload)}\n")
-            elif args.api_url:
-                try:
-                    res = publish(args.api_url, payload, args.api_key)
-                    print(f"  [HTTP 201 OK] Telemetry published -> DynamoDB: {res.get('message')}\n", flush=True)
-                except Exception as err:
-                    print(f"  [HTTP ERROR] Failed to send: {err}\n", flush=True)
+                print(f"  [DRY-RUN JSON] {json.dumps(payload)}\n", flush=True)
+            else:
+                for target_url in active_urls:
+                    try:
+                        res = publish(target_url, payload, args.api_key)
+                        dest_label = "AWS DynamoDB Cloud" if "amazonaws.com" in target_url else "Local Bridge"
+                        print(f"  [HTTP 201 OK] Telemetry accepted by {dest_label} ({res.get('message', 'Recorded')})", flush=True)
+                    except Exception as err:
+                        print(f"  [HTTP ERROR] Failed to send to {target_url}: {err}", flush=True)
+                print("", flush=True)
 
             if args.once:
                 break
