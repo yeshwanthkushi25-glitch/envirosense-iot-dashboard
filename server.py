@@ -77,21 +77,84 @@ telemetry_history: list[dict[str, Any]] = [
 
 
 def compute_heat_index(temp_c: float, rh: float) -> float:
+    """Calculate apparent Heat Index in Celsius using the official NOAA NWS algorithm.
+    
+    Reference: National Oceanic and Atmospheric Administration (NOAA) /
+    National Weather Service (NWS) Technical Attachment SR 90-23 (Rothfusz, 1990).
+    """
+    if temp_c <= 20.0:
+        return round(temp_c, 1)
+
     t_f = (temp_c * 9.0 / 5.0) + 32.0
-    hi_f = 0.5 * (t_f + 61.0 + ((t_f - 68.0) * 1.2) + (rh * 0.094))
-    if hi_f >= 80.0:
+    rh_c = max(0.0, min(100.0, float(rh)))
+
+    # Step 1: Steadman simple formula
+    hi_simple = 0.5 * (t_f + 61.0 + ((t_f - 68.0) * 1.2) + (rh_c * 0.094))
+
+    # Step 2: NOAA decision rule
+    if (hi_simple + t_f) / 2.0 < 80.0:
+        hi_f = hi_simple
+    else:
+        # Step 3: Full 9-term Rothfusz polynomial regression
         hi_f = (
             -42.379
             + (2.04901523 * t_f)
-            + (10.14333127 * rh)
-            - (0.22475541 * t_f * rh)
+            + (10.14333127 * rh_c)
+            - (0.22475541 * t_f * rh_c)
             - (0.00683783 * (t_f**2))
-            - (0.05481717 * (rh**2))
-            + (0.00122874 * (t_f**2) * rh)
-            + (0.00085282 * t_f * (rh**2))
-            - (0.00000199 * (t_f**2) * (rh**2))
+            - (0.05481717 * (rh_c**2))
+            + (0.00122874 * (t_f**2) * rh_c)
+            + (0.00085282 * t_f * (rh_c**2))
+            - (0.00000199 * (t_f**2) * (rh_c**2))
         )
+
+        # Step 4: NOAA Adjustment 1 (Low humidity: RH < 13% and 80 <= T <= 112 °F)
+        if rh_c < 13.0 and 80.0 <= t_f <= 112.0:
+            adj = ((13.0 - rh_c) / 4.0) * (((17.0 - abs(t_f - 95.0)) / 17.0) ** 0.5)
+            hi_f -= adj
+
+        # Step 5: NOAA Adjustment 2 (High humidity: RH > 85% and 80 <= T <= 87 °F)
+        elif rh_c > 85.0 and 80.0 <= t_f <= 87.0:
+            adj = ((rh_c - 85.0) / 10.0) * ((87.0 - t_f) / 5.0)
+            hi_f += adj
+
     return round((hi_f - 32.0) * 5.0 / 9.0, 1)
+
+
+def compute_aqi(gas_ppm: float) -> tuple[int, str]:
+    """Calculate EPA-standard Air Quality Index (0-500) and category label from gas PPM."""
+    g = max(0.0, float(gas_ppm))
+    breakpoints = [
+        (0.0, 200.0, 0, 50),        # Good (0-50)
+        (201.0, 350.0, 51, 100),    # Moderate (51-100)
+        (351.0, 500.0, 101, 150),   # Unhealthy for Sensitive Groups (101-150)
+        (501.0, 650.0, 151, 200),   # Unhealthy (151-200)
+        (601.0, 700.0, 201, 300),   # Very Unhealthy (201-300)
+        (701.0, 1000.0, 301, 500),  # Hazardous (301-500)
+    ]
+    aqi = 500
+    for c_low, c_high, i_low, i_high in breakpoints:
+        if g <= c_high:
+            if c_high == c_low:
+                aqi = i_low
+            else:
+                aqi = round(((i_high - i_low) / (c_high - c_low)) * (g - c_low) + i_low)
+            break
+    aqi = max(0, min(500, aqi))
+
+    if aqi <= 50:
+        category = "GOOD"
+    elif aqi <= 100:
+        category = "MODERATE"
+    elif aqi <= 150:
+        category = "UNHEALTHY (USG)"
+    elif aqi <= 200:
+        category = "UNHEALTHY"
+    elif aqi <= 300:
+        category = "VERY UNHEALTHY"
+    else:
+        category = "HAZARDOUS"
+    return aqi, category
 
 
 def evaluate_status(
@@ -217,16 +280,9 @@ class EnviroSenseBridgeHandler(SimpleHTTPRequestHandler):
         else:
             _, status_detail = evaluate_status(temp_c, hum, hi, gas_ppm)
 
-        air_quality = data.get("airQuality")
-        if not air_quality:
-            if gas_ppm >= 600.0:
-                air_quality = "HAZARDOUS"
-            elif gas_ppm >= 350.0:
-                air_quality = "MODERATE"
-            elif gas_ppm >= 200.0:
-                air_quality = "GOOD"
-            else:
-                air_quality = "EXCELLENT"
+        calc_aqi, calc_category = compute_aqi(gas_ppm)
+        aqi_val = int(data.get("aqi", calc_aqi))
+        air_quality = str(data.get("airQuality", "")).strip() or calc_category
 
         now_utc = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         now_ts = int(time.time())
@@ -238,6 +294,7 @@ class EnviroSenseBridgeHandler(SimpleHTTPRequestHandler):
             "humidityPct": round(hum, 1),
             "heatIndexC": round(hi, 1),
             "gasPpm": round(gas_ppm),
+            "aqi": aqi_val,
             "airQuality": air_quality,
             "status": status,
             "statusDetail": status_detail,
@@ -251,9 +308,9 @@ class EnviroSenseBridgeHandler(SimpleHTTPRequestHandler):
 
         # Print log to terminal
         print(
-            f"[ESP32 -> BRIDGE] Temp: {item['temperatureC']}°C | Hum:"
-            f" {item['humidityPct']}% | Gas: {item['gasPpm']} PPM"
-            f" ({item['airQuality']}) -> Status: {item['status']}"
+            f"[ESP32 -> BRIDGE] Temp: {item['temperatureC']}°C | Hum: "
+            f"{item['humidityPct']}% | HeatIdx: {item['heatIndexC']}°C | "
+            f"AQI: {item['aqi']} ({item['airQuality']}, {item['gasPpm']} PPM) -> {item['status']}"
         )
 
         # Asynchronously synchronize with AWS DynamoDB

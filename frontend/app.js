@@ -115,24 +115,98 @@ const initialHistory = [
 
 let telemetryHistory = [...initialHistory];
 
-function getAirQualityLabel(ppm) {
-  if (ppm >= 600) return "HAZARDOUS";
-  if (ppm >= 350) return "MODERATE";
-  if (ppm >= 200) return "GOOD";
-  return "EXCELLENT";
+// EPA Standard Air Quality Index (0-500) & Category Calculation
+function calculateAQI(gasPpm) {
+  const g = Math.max(0, Number(gasPpm) || 0);
+  const breakpoints = [
+    { cLow: 0.0,   cHigh: 200.0,  iLow: 0,   iHigh: 50 },   // Good
+    { cLow: 201.0, cHigh: 350.0,  iLow: 51,  iHigh: 100 },  // Moderate
+    { cLow: 351.0, cHigh: 500.0,  iLow: 101, iHigh: 150 },  // Unhealthy for Sensitive Groups
+    { cLow: 501.0, cHigh: 650.0,  iLow: 151, iHigh: 200 },  // Unhealthy
+    { cLow: 651.0, cHigh: 700.0,  iLow: 201, iHigh: 300 },  // Very Unhealthy
+    { cLow: 701.0, cHigh: 1000.0, iLow: 301, iHigh: 500 }   // Hazardous
+  ];
+
+  let aqi = 500;
+  for (const b of breakpoints) {
+    if (g <= b.cHigh) {
+      aqi = Math.round(((b.iHigh - b.iLow) / (b.cHigh - b.cLow)) * (g - b.cLow) + b.iLow);
+      break;
+    }
+  }
+  aqi = Math.max(0, Math.min(500, aqi));
+
+  let category = "GOOD";
+  let color = "#10B981";
+  if (aqi <= 50) {
+    category = "GOOD";
+    color = "#10B981";
+  } else if (aqi <= 100) {
+    category = "MODERATE";
+    color = "#F59E0B";
+  } else if (aqi <= 150) {
+    category = "UNHEALTHY (USG)";
+    color = "#F97316";
+  } else if (aqi <= 200) {
+    category = "UNHEALTHY";
+    color = "#EF4444";
+  } else if (aqi <= 300) {
+    category = "VERY UNHEALTHY";
+    color = "#8B5CF6";
+  } else {
+    category = "HAZARDOUS";
+    color = "#881337";
+  }
+
+  return { aqi, category, color, ppm: g };
 }
 
-// Steadman Heat Index Calculation
+function getAirQualityLabel(ppm) {
+  return calculateAQI(ppm).category;
+}
+
+// Official NOAA National Weather Service (NWS) Heat Index Equation (Rothfusz, 1990)
 function calculateHeatIndex(tempC, rh) {
-  const tF = (tempC * 9.0 / 5.0) + 32.0;
-  let hiF = 0.5 * (tF + 61.0 + ((tF - 68.0) * 1.2) + (rh * 0.094));
-  if (hiF >= 80.0) {
-    hiF = -42.379 + (2.04901523 * tF) + (10.14333127 * rh)
-      - (0.22475541 * tF * rh) - (0.00683783 * (tF ** 2))
-      - (0.05481717 * (rh ** 2)) + (0.00122874 * (tF ** 2) * rh)
-      + (0.00085282 * tF * (rh ** 2)) - (0.00000199 * (tF ** 2) * (rh ** 2));
+  // Heat index only applies to warm ambient temperatures (>= 20°C / 68°F);
+  // at cool temperatures, apparent temperature equals ambient temperature.
+  if (tempC <= 20.0) {
+    return Number(tempC.toFixed(1));
   }
-  return Number(((hiF - 32.0) * 5.0 / 9.0).toFixed(1));
+
+  const tF = (tempC * 9.0 / 5.0) + 32.0;
+  const rhC = Math.max(0, Math.min(100, Number(rh)));
+
+  // Step 1: Steadman simple formula
+  const hiSimple = 0.5 * (tF + 61.0 + ((tF - 68.0) * 1.2) + (rhC * 0.094));
+
+  // Step 2: NOAA decision rule
+  let hiF = hiSimple;
+  if ((hiSimple + tF) / 2.0 >= 80.0) {
+    // Step 3: Full 9-term Rothfusz polynomial regression
+    hiF = -42.379
+      + (2.04901523 * tF)
+      + (10.14333127 * rhC)
+      - (0.22475541 * tF * rhC)
+      - (0.00683783 * (tF ** 2))
+      - (0.05481717 * (rhC ** 2))
+      + (0.00122874 * (tF ** 2) * rhC)
+      + (0.00085282 * tF * (rhC ** 2))
+      - (0.00000199 * (tF ** 2) * (rhC ** 2));
+
+    // Step 4: NOAA Adjustment 1 (Low humidity: RH < 13% and 80 <= T <= 112 °F)
+    if (rhC < 13.0 && tF >= 80.0 && tF <= 112.0) {
+      const adj = ((13.0 - rhC) / 4.0) * Math.sqrt(Math.max(0, (17.0 - Math.abs(tF - 95.0)) / 17.0));
+      hiF -= adj;
+    }
+    // Step 5: NOAA Adjustment 2 (High humidity: RH > 85% and 80 <= T <= 87 °F)
+    else if (rhC > 85.0 && tF >= 80.0 && tF <= 87.0) {
+      const adj = ((rhC - 85.0) / 10.0) * ((87.0 - tF) / 5.0);
+      hiF += adj;
+    }
+  }
+
+  const hiC = (hiF - 32.0) * 5.0 / 9.0;
+  return Number(hiC.toFixed(1));
 }
 
 function getComfortLabel(rh) {
@@ -169,9 +243,15 @@ function renderDashboard(latest) {
   heatIndexRisk.textContent = getHeatRiskLabel(hi);
 
   const gas = latest.gas ?? 180;
-  if (gasVal) gasVal.textContent = Math.round(gas);
-  const airQuality = latest.airQuality || getAirQualityLabel(gas);
-  if (gasStatus) gasStatus.textContent = `Air: ${airQuality} (${Math.round(gas)} PPM)`;
+  const aqiInfo = calculateAQI(gas);
+  const aqi = latest.aqi !== undefined ? latest.aqi : aqiInfo.aqi;
+  const airQuality = latest.airQuality || aqiInfo.category;
+
+  if (gasVal) gasVal.textContent = aqi;
+  if (gasStatus) {
+    gasStatus.textContent = `${airQuality} (${Math.round(gas)} PPM)`;
+    gasStatus.style.color = aqiInfo.color;
+  }
 
   deviceIdVal.textContent = latest.device || "enviro-esp32-01";
   locationVal.textContent = latest.loc || "Campus Greenhouse Lab";
@@ -190,10 +270,10 @@ function renderDashboard(latest) {
   const heatPct = Math.min(1, Math.max(0, hi / 50.0));
   heatDialArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - heatPct);
 
-  // Gas scale: 0 to 1000 PPM
+  // AQI scale: 0 to 500 (standard EPA index)
   if (gasDialArc) {
-    const gasPct = Math.min(1, Math.max(0, gas / 1000.0));
-    gasDialArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - gasPct);
+    const aqiPct = Math.min(1, Math.max(0, aqi / 500.0));
+    gasDialArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - aqiPct);
   }
 
   // 3. System Status Evaluation & Audio Tone
@@ -264,7 +344,7 @@ function renderTable() {
       <td style="font-weight:700; color:var(--accent-cyan); font-size:0.875rem;">${row.temp.toFixed(1)} °C</td>
       <td style="font-weight:700; color:var(--accent-blue); font-size:0.875rem;">${row.hum.toFixed(1)} %</td>
       <td>${row.hi ? row.hi.toFixed(1) + " °C" : "—"}</td>
-      <td style="font-weight:700; color:#c084fc; font-size:0.875rem;">${Math.round(row.gas ?? 180)} PPM</td>
+      <td style="font-weight:700; color:#c084fc; font-size:0.875rem;">AQI ${row.aqi !== undefined ? row.aqi : calculateAQI(row.gas ?? 180).aqi} (${Math.round(row.gas ?? 180)} PPM)</td>
       <td>${getTableBadge(row.status)}</td>
     </tr>
   `).join("");
@@ -497,6 +577,7 @@ async function fetchFromApi() {
           hum: Number(data.latest.humidityPct),
           hi: data.latest.heatIndexC !== undefined ? Number(data.latest.heatIndexC) : calculateHeatIndex(data.latest.temperatureC, data.latest.humidityPct),
           gas: data.latest.gasPpm !== undefined ? Number(data.latest.gasPpm) : 180,
+          aqi: data.latest.aqi !== undefined ? Number(data.latest.aqi) : calculateAQI(data.latest.gasPpm || 180).aqi,
           airQuality: data.latest.airQuality || getAirQualityLabel(data.latest.gasPpm || 180),
           status: data.latest.status || "NORMAL",
           device: data.latest.deviceId || "enviro-esp32-01",

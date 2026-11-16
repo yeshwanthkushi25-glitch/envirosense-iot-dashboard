@@ -70,9 +70,11 @@ unsigned long lastReportTime = 0;
 
 // ================= FUNCTION PROTOTYPES =================
 void connectWiFi();
-void updateOLED(float temp, float hum, float hi, float gasPpm, const char* airQuality, const char* overallStatus);
+float computeNOAAHeatIndex(float tempC, float rh);
+int computeAQI(float gasPpm, const char** categoryOut);
+void updateOLED(float temp, float hum, float hi, float gasPpm, int aqi, const char* airQuality, const char* overallStatus);
 void updateOLEDError(const char* message);
-void sendTelemetry(float temp, float hum, float hi, float gasPpm, const char* airQuality, const char* overallStatus);
+void sendTelemetry(float temp, float hum, float hi, float gasPpm, int aqi, const char* airQuality, const char* overallStatus);
 float readGasPpm(int rawAdc);
 const char* evaluateAirQuality(float gasPpm);
 const char* evaluateOverallStatus(float temp, float hum, float hi, float gasPpm);
@@ -154,20 +156,21 @@ void loop() {
       prevHum = humidity;
       prevGas = gasPpm;
 
-      // Compute Steadman Heat Index in Celsius
-      float heatIndex = dht.computeHeatIndex(temperature, humidity, false);
-      const char* airQuality = evaluateAirQuality(gasPpm);
+      // Compute NOAA Heat Index in Celsius
+      float heatIndex = computeNOAAHeatIndex(temperature, humidity);
+      const char* airQuality = "GOOD";
+      int aqi = computeAQI(gasPpm, &airQuality);
       const char* overallStatus = evaluateOverallStatus(temperature, humidity, heatIndex, gasPpm);
 
       // Output Serial Telemetry
-      Serial.printf("[TELEMETRY] Temp: %.1f C | Hum: %.1f %% | HeatIdx: %.1f C | Gas: %.0f PPM [%s] -> Status: %s\n",
-                    temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+      Serial.printf("[TELEMETRY] Temp: %.1f C | Hum: %.1f %% | HeatIdx: %.1f C | AQI: %d [%s] (Gas: %.0f PPM) -> Status: %s\n",
+                    temperature, humidity, heatIndex, aqi, airQuality, gasPpm, overallStatus);
 
       // Update OLED Screen
-      updateOLED(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+      updateOLED(temperature, humidity, heatIndex, gasPpm, aqi, airQuality, overallStatus);
 
       // Transmit Telemetry Payload to Bridge / AWS
-      sendTelemetry(temperature, humidity, heatIndex, gasPpm, airQuality, overallStatus);
+      sendTelemetry(temperature, humidity, heatIndex, gasPpm, aqi, airQuality, overallStatus);
     }
   }
 }
@@ -213,11 +216,76 @@ float readGasPpm(int rawAdc) {
   return ppm;
 }
 
+float computeNOAAHeatIndex(float tempC, float rh) {
+  if (tempC <= 20.0f) {
+    return tempC;
+  }
+  float tf = (tempC * 9.0f / 5.0f) + 32.0f;
+  float rh_c = max(0.0f, min(100.0f, rh));
+
+  // Step 1: Steadman simple equation
+  float hi_simple = 0.5f * (tf + 61.0f + ((tf - 68.0f) * 1.2f) + (rh_c * 0.094f));
+
+  // Step 2: NOAA decision rule
+  float hi_f = hi_simple;
+  if ((hi_simple + tf) / 2.0f >= 80.0f) {
+    // Step 3: Full 9-term Rothfusz polynomial regression
+    hi_f = -42.379f + 2.04901523f * tf + 10.14333127f * rh_c
+           - 0.22475541f * tf * rh_c
+           - 0.00683783f * (tf * tf)
+           - 0.05481717f * (rh_c * rh_c)
+           + 0.00122874f * (tf * tf) * rh_c
+           + 0.00085282f * tf * (rh_c * rh_c)
+           - 0.00000199f * (tf * tf) * (rh_c * rh_c);
+
+    // Step 4: NOAA Adjustment 1 (Low humidity)
+    if (rh_c < 13.0f && tf >= 80.0f && tf <= 112.0f) {
+      hi_f -= ((13.0f - rh_c) / 4.0f) * sqrt(max(0.0f, (17.0f - fabs(tf - 95.0f)) / 17.0f));
+    }
+    // Step 5: NOAA Adjustment 2 (High humidity)
+    else if (rh_c > 85.0f && tf >= 80.0f && tf <= 87.0f) {
+      hi_f += ((rh_c - 85.0f) / 10.0f) * ((87.0f - tf) / 5.0f);
+    }
+  }
+
+  return (hi_f - 32.0f) * 5.0f / 9.0f;
+}
+
+int computeAQI(float gasPpm, const char** categoryOut) {
+  float g = max(0.0f, gasPpm);
+  struct Breakpoint { float cLow; float cHigh; int iLow; int iHigh; };
+  Breakpoint breaks[] = {
+    {0.0f, 200.0f, 0, 50},
+    {201.0f, 350.0f, 51, 100},
+    {351.0f, 500.0f, 101, 150},
+    {501.0f, 650.0f, 151, 200},
+    {651.0f, 700.0f, 201, 300},
+    {701.0f, 1000.0f, 301, 500}
+  };
+  int aqi = 500;
+  for (int i = 0; i < 6; i++) {
+    if (g <= breaks[i].cHigh) {
+      aqi = round(((float)(breaks[i].iHigh - breaks[i].iLow) / (breaks[i].cHigh - breaks[i].cLow)) * (g - breaks[i].cLow) + breaks[i].iLow);
+      break;
+    }
+  }
+  if (aqi > 500) aqi = 500;
+  if (aqi < 0) aqi = 0;
+
+  if (aqi <= 50) *categoryOut = "GOOD";
+  else if (aqi <= 100) *categoryOut = "MODERATE";
+  else if (aqi <= 150) *categoryOut = "UNHEALTHY (USG)";
+  else if (aqi <= 200) *categoryOut = "UNHEALTHY";
+  else if (aqi <= 300) *categoryOut = "VERY UNHEALTHY";
+  else *categoryOut = "HAZARDOUS";
+
+  return aqi;
+}
+
 const char* evaluateAirQuality(float gasPpm) {
-  if (gasPpm >= 600.0f) return "HAZARDOUS";
-  if (gasPpm >= 350.0f) return "MODERATE";
-  if (gasPpm >= 200.0f) return "GOOD";
-  return "EXCELLENT";
+  const char* cat = "GOOD";
+  computeAQI(gasPpm, &cat);
+  return cat;
 }
 
 const char* evaluateOverallStatus(float temp, float hum, float hi, float gasPpm) {
@@ -229,7 +297,7 @@ const char* evaluateOverallStatus(float temp, float hum, float hi, float gasPpm)
   return "NORMAL";
 }
 
-void updateOLED(float temp, float hum, float hi, float gasPpm, const char* airQuality, const char* overallStatus) {
+void updateOLED(float temp, float hum, float hi, float gasPpm, int aqi, const char* airQuality, const char* overallStatus) {
   display.clearDisplay();
 
   // Top Title Bar
@@ -245,13 +313,13 @@ void updateOLED(float temp, float hum, float hi, float gasPpm, const char* airQu
   display.setCursor(0, 14);
   display.printf("T:%.1fC  H:%.0f%%", temp, hum);
 
-  // Line 2: Heat Index & Gas PPM
+  // Line 2: NOAA Heat Index
   display.setCursor(0, 26);
   display.printf("HI:%.1fC Gas:%.0f", hi, gasPpm);
 
-  // Line 3: Air Quality Label
+  // Line 3: EPA AQI Readout
   display.setCursor(0, 38);
-  display.printf("Air: %s", airQuality);
+  display.printf("AQI:%d [%s]", aqi, airQuality);
 
   // Bottom Status Banner
   display.drawLine(0, 50, 128, 50, SSD1306_WHITE);
@@ -283,7 +351,7 @@ void updateOLEDError(const char* message) {
   display.display();
 }
 
-void sendTelemetry(float temp, float hum, float hi, float gasPpm, const char* airQuality, const char* overallStatus) {
+void sendTelemetry(float temp, float hum, float hi, float gasPpm, int aqi, const char* airQuality, const char* overallStatus) {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println(F("[POST SKIP] WiFi disconnected. Telemetry buffered."));
     return;
@@ -297,6 +365,7 @@ void sendTelemetry(float temp, float hum, float hi, float gasPpm, const char* ai
   doc["humidityPct"]  = round(hum * 10.0f) / 10.0f;
   doc["heatIndexC"]   = round(hi * 10.0f) / 10.0f;
   doc["gasPpm"]       = round(gasPpm);
+  doc["aqi"]          = aqi;
   doc["airQuality"]   = airQuality;
   doc["status"]       = overallStatus;
 
@@ -304,8 +373,8 @@ void sendTelemetry(float temp, float hum, float hi, float gasPpm, const char* ai
   serializeJson(doc, jsonPayload);
 
   Serial.println(F("\n--------------------------------------------------------"));
-  Serial.printf("[TELEMETRY] Temp: %.1fC | Hum: %.0f%% | Gas: %.0f PPM (%s) | Status: %s\n",
-                temp, hum, gasPpm, airQuality, overallStatus);
+  Serial.printf("[TELEMETRY] Temp: %.1fC | Hum: %.0f%% | NOAA HI: %.1fC | AQI: %d (%s) | Status: %s\n",
+                temp, hum, hi, aqi, airQuality, overallStatus);
 
   bool localSuccess = false;
 

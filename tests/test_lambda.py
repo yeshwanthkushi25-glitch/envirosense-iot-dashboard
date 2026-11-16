@@ -143,6 +143,37 @@ class EnviroSenseLambdaTests(unittest.TestCase):
         self.assertEqual(stored["airQuality"], "HAZARDOUS")
         self.assertEqual(stored["gasPpm"], 750.0)
 
+    def test_noaa_heat_index_calculations(self):
+        # 1. Cold conditions: Heat index equals ambient temperature (no heat fatigue)
+        self.assertEqual(app.compute_heat_index(2.0, 40.0), 2.0)
+        self.assertEqual(app.compute_heat_index(18.0, 60.0), 18.0)
+
+        # 2. Moderate warmth (below 80°F avg): Steadman simple formula
+        # 24.0°C (75.2°F), 50% RH -> simple formula
+        hi_24 = app.compute_heat_index(24.0, 50.0)
+        self.assertAlmostEqual(hi_24, 23.95, delta=0.5)
+
+        # 3. Severe Heatwave: Rothfusz regression with high-humidity adjustment
+        # 42.0°C (107.6°F), 85% RH -> critical heat index
+        hi_hot = app.compute_heat_index(42.0, 85.0)
+        self.assertGreater(hi_hot, 60.0)
+
+    def test_epa_aqi_calculations(self):
+        # 1. Clean ambient air (180 PPM) -> Good (AQI <= 50)
+        aqi_good, cat_good = app.compute_aqi(180.0)
+        self.assertEqual(cat_good, "GOOD")
+        self.assertLessEqual(aqi_good, 50)
+
+        # 2. Moderate pollution (280 PPM) -> Moderate (51-100)
+        aqi_mod, cat_mod = app.compute_aqi(280.0)
+        self.assertEqual(cat_mod, "MODERATE")
+        self.assertTrue(51 <= aqi_mod <= 100)
+
+        # 3. Toxic gas leak (750 PPM) -> Hazardous (301-500)
+        aqi_haz, cat_haz = app.compute_aqi(750.0)
+        self.assertEqual(cat_haz, "HAZARDOUS")
+        self.assertTrue(301 <= aqi_haz <= 500)
+
     def test_options_cors_preflight(self):
         event = {"requestContext": {"http": {"method": "OPTIONS"}}}
         result = app.handler(event, None)

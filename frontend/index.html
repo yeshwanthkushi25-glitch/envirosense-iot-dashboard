@@ -259,8 +259,8 @@
         <div class="card gauge-card card-gas" id="card-gas">
           <div class="card-top-row">
             <div class="metric-title-group">
-              <span class="metric-label">Air Quality & Gas</span>
-              <span class="metric-subtitle">MQ-135 Sensor</span>
+              <span class="metric-label">Air Quality Index (AQI)</span>
+              <span class="metric-subtitle">MQ-135 Gas &amp; VOC Sensor</span>
             </div>
             <div class="category-icon icon-gas">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -284,17 +284,17 @@
             </svg>
             <div class="dial-center-content">
               <div class="readout-main">
-                <span id="gas-val">180</span><span class="unit">PPM</span>
+                <span id="gas-val">45</span><span class="unit">AQI</span>
               </div>
-              <span class="sub-readout status-safe" id="gas-status">Air Quality: Good</span>
+              <span class="sub-readout status-safe" id="gas-status">Good (180 PPM)</span>
             </div>
           </div>
 
           <div class="gauge-footer">
             <div class="scale-tags">
-              <span>0 PPM</span>
-              <span class="highlight-range">Normal: &lt;350</span>
-              <span>1000 Max</span>
+              <span>0 Good</span>
+              <span class="highlight-range">EPA AQI (0-500)</span>
+              <span>500 Haz</span>
             </div>
           </div>
         </div>
@@ -415,7 +415,7 @@
                 <th>Temperature</th>
                 <th>Humidity</th>
                 <th>Heat Index</th>
-                <th>Gas Level</th>
+                <th>Air Quality (AQI)</th>
                 <th>Classification</th>
               </tr>
             </thead>

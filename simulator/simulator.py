@@ -25,22 +25,84 @@ DEFAULT_LOCAL_API_URL = "http://localhost:3000/telemetry"
 
 
 def compute_heat_index(temp_c: float, rh: float) -> float:
-    """Calculate Steadman/Rothfusz Heat Index in Celsius."""
+    """Calculate apparent Heat Index in Celsius using the official NOAA NWS algorithm.
+    
+    Reference: National Oceanic and Atmospheric Administration (NOAA) /
+    National Weather Service (NWS) Technical Attachment SR 90-23 (Rothfusz, 1990).
+    """
+    if temp_c <= 20.0:
+        return round(temp_c, 2)
+
     t_f = (temp_c * 9.0 / 5.0) + 32.0
-    hi_f = 0.5 * (t_f + 61.0 + ((t_f - 68.0) * 1.2) + (rh * 0.094))
-    if hi_f >= 80.0:
+    rh_c = max(0.0, min(100.0, float(rh)))
+
+    # Step 1: Steadman simple formula
+    hi_simple = 0.5 * (t_f + 61.0 + ((t_f - 68.0) * 1.2) + (rh_c * 0.094))
+
+    # Step 2: NOAA decision rule
+    if (hi_simple + t_f) / 2.0 < 80.0:
+        hi_f = hi_simple
+    else:
+        # Step 3: Full 9-term Rothfusz polynomial regression
         hi_f = (
             -42.379
             + (2.04901523 * t_f)
-            + (10.14333127 * rh)
-            - (0.22475541 * t_f * rh)
+            + (10.14333127 * rh_c)
+            - (0.22475541 * t_f * rh_c)
             - (0.00683783 * (t_f ** 2))
-            - (0.05481717 * (rh ** 2))
-            + (0.00122874 * (t_f ** 2) * rh)
-            + (0.00085282 * t_f * (rh ** 2))
-            - (0.00000199 * (t_f ** 2) * (rh ** 2))
+            - (0.05481717 * (rh_c ** 2))
+            + (0.00122874 * (t_f ** 2) * rh_c)
+            + (0.00085282 * t_f * (rh_c ** 2))
+            - (0.00000199 * (t_f ** 2) * (rh_c ** 2))
         )
+
+        # Step 4: NOAA Adjustment 1 (Low humidity: RH < 13% and 80 <= T <= 112 °F)
+        if rh_c < 13.0 and 80.0 <= t_f <= 112.0:
+            adj = ((13.0 - rh_c) / 4.0) * math.sqrt(max(0.0, (17.0 - abs(t_f - 95.0)) / 17.0))
+            hi_f -= adj
+
+        # Step 5: NOAA Adjustment 2 (High humidity: RH > 85% and 80 <= T <= 87 °F)
+        elif rh_c > 85.0 and 80.0 <= t_f <= 87.0:
+            adj = ((rh_c - 85.0) / 10.0) * ((87.0 - t_f) / 5.0)
+            hi_f += adj
+
     return round((hi_f - 32.0) * 5.0 / 9.0, 2)
+
+
+def compute_aqi(gas_ppm: float) -> tuple[int, str]:
+    """Calculate EPA-standard Air Quality Index (0-500) and category label from gas PPM."""
+    g = max(0.0, float(gas_ppm))
+    breakpoints = [
+        (0.0, 200.0, 0, 50),        # Good (0-50)
+        (201.0, 350.0, 51, 100),    # Moderate (51-100)
+        (351.0, 500.0, 101, 150),   # Unhealthy for Sensitive Groups (101-150)
+        (501.0, 600.0, 151, 200),   # Unhealthy (151-200)
+        (601.0, 700.0, 201, 300),   # Very Unhealthy (201-300)
+        (701.0, 1000.0, 301, 500),  # Hazardous (301-500)
+    ]
+    aqi = 500
+    for c_low, c_high, i_low, i_high in breakpoints:
+        if g <= c_high:
+            if c_high == c_low:
+                aqi = i_low
+            else:
+                aqi = round(((i_high - i_low) / (c_high - c_low)) * (g - c_low) + i_low)
+            break
+    aqi = max(0, min(500, aqi))
+
+    if aqi <= 50:
+        category = "GOOD"
+    elif aqi <= 100:
+        category = "MODERATE"
+    elif aqi <= 150:
+        category = "UNHEALTHY (USG)"
+    elif aqi <= 200:
+        category = "UNHEALTHY"
+    elif aqi <= 300:
+        category = "VERY UNHEALTHY"
+    else:
+        category = "HAZARDOUS"
+    return aqi, category
 
 
 def generate_reading(mode: str, step: int) -> tuple[float, float, float]:
@@ -77,29 +139,24 @@ def make_payload(args: argparse.Namespace, step: int) -> dict:
     temp_c, hum_pct, gas_ppm = generate_reading(args.mode, step)
     hi_c = compute_heat_index(temp_c, hum_pct)
     gas_raw = int(gas_ppm * 4.095)
+    aqi, aqi_cat = compute_aqi(gas_ppm)
 
     if gas_ppm >= 600.0:
-        air_quality = "HAZARDOUS"
         status = "GAS_ALERT"
         status_detail = f"Hazardous gas concentration: {gas_ppm:.0f} PPM."
     elif temp_c <= 5.0:
-        air_quality = "GOOD"
         status = "FREEZE_ALERT"
         status_detail = f"Freezing temperature warning: {temp_c}°C."
     elif temp_c >= 40.0 or hi_c >= 40.0:
-        air_quality = "MODERATE"
         status = "HEAT_ALERT"
         status_detail = f"Critical heat index danger: {hi_c}°C."
     elif hum_pct >= 85.0:
-        air_quality = "GOOD"
         status = "HIGH_HUMIDITY"
         status_detail = f"High relative humidity: {hum_pct}%."
     elif gas_ppm >= 350.0:
-        air_quality = "MODERATE"
         status = "WARNING"
         status_detail = f"Elevated VOC / gas concentration: {gas_ppm:.0f} PPM."
     else:
-        air_quality = "EXCELLENT" if gas_ppm < 200.0 else "GOOD"
         status = "NORMAL"
         status_detail = "Climate parameters are within optimal ranges."
 
@@ -111,7 +168,8 @@ def make_payload(args: argparse.Namespace, step: int) -> dict:
         "heatIndexC": hi_c,
         "gasPpm": gas_ppm,
         "gasRaw": gas_raw,
-        "airQuality": air_quality,
+        "aqi": aqi,
+        "airQuality": aqi_cat,
         "status": status,
         "statusDetail": status_detail,
         "recordedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -218,7 +276,7 @@ def main() -> None:
             print(f"[{now_str}] Sensor Reading:")
             print(
                 f"  Temp: {payload['temperatureC']} °C | Hum: {payload['humidityPct']} % | "
-                f"Heat Index: {payload['heatIndexC']} °C | Gas: {payload['gasPpm']} PPM ({payload['airQuality']}) -> Status: {payload['status']}"
+                f"NOAA HI: {payload['heatIndexC']} °C | AQI: {payload['aqi']} ({payload['airQuality']}, {payload['gasPpm']} PPM) -> Status: {payload['status']}"
             )
 
             if args.dry_run:
